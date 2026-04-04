@@ -1,4 +1,4 @@
-use std::sync::{Mutex, OnceLock};
+use std::sync::OnceLock;
 
 use anyhow::Result;
 use diesel::{
@@ -11,7 +11,6 @@ use log::info;
 use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
 pub type DbPool = Pool<ConnectionManager<PgConnection>>;
-pub type DbConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
