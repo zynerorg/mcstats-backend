@@ -1,3 +1,5 @@
+use std::sync::{Mutex, OnceLock};
+
 use anyhow::Result;
 use diesel::{
     pg::PgConnection,
@@ -5,18 +7,15 @@ use diesel::{
     r2d2::{ConnectionManager, Pool},
 };
 use log::info;
-use once_cell::sync::OnceCell;
 
-use diesel_migrations::{
-    EmbeddedMigrations, MigrationHarness, embed_migrations,
-};
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 
 pub type DbPool = Pool<ConnectionManager<PgConnection>>;
 pub type DbConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
 
 pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
-static DB_POOL: OnceCell<DbPool> = OnceCell::new();
+static DB_POOL: OnceLock<DbPool> = OnceLock::new();
 
 pub fn init(database_url: &str) -> Result<()> {
     let manager = ConnectionManager::<PgConnection>::new(database_url);
