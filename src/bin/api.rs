@@ -188,6 +188,6 @@ async fn main() {
         .route("/transform/name/{name}", get(username_to_uuid))
         .with_state(state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:2456").await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

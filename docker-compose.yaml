@@ -16,22 +16,24 @@ services:
     stop_grace_period: 3s
     command: ["/app/syncer"]
 
-  endpoint:
+  api:
     build:
       context: .
       dockerfile: Dockerfile
     image: minecraft-stats:latest
     env_file:
       - .env
+    volumes:
+      - ./world:/app/world:ro
     ports:
-      - "3000:3000"
+      - "2456:2456"
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
     stop_signal: SIGTERM
     stop_grace_period: 3s
-    command: ["/app/endpoint"]
+    command: ["/app/api"]
 
   db:
     image: postgres:18
@@ -40,7 +42,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
