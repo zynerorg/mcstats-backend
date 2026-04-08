@@ -10,6 +10,7 @@ struct UserCacheEntry {
     uuid: String,
 }
 
+#[derive(Debug, Clone)]
 pub struct MojangCache {
     uuid_to_name: HashMap<Uuid, String>,
     name_to_uuid: HashMap<String, Uuid>,
@@ -42,5 +43,9 @@ impl MojangCache {
 
     pub fn uuid_to_username(&self, uuid: &Uuid) -> Option<String> {
         self.uuid_to_name.get(uuid).cloned()
+    }
+
+    pub fn len(&self) -> usize {
+        self.uuid_to_name.len()
     }
 }

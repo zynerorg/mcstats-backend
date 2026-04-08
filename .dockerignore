@@ -1,0 +1,10 @@
+**/.git
+**/.gitignore
+**/target
+**/Dockerfile
+**/docker-compose.yaml
+**/.env.*
+!**/.env.example
+**/*.md
+**/*.log
+**/db_data

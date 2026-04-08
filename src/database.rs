@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
 use diesel::{ExpressionMethods, QueryDsl, SelectableHelper};
 use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
-use log::debug;
+use log::{debug, info};
 use std::path::Path;
 use tokio::fs;
 use uuid::Uuid;
@@ -10,29 +10,35 @@ use crate::models::{Player, PlayerStats, StatsFile};
 use crate::mojang_utils::MojangCache;
 
 pub async fn establish_connection(url: &str) -> AsyncPgConnection {
+    info!("Establishing database connection...");
     AsyncPgConnection::establish(url)
         .await
         .unwrap_or_else(|_| panic!("Error connecting to {}", url))
 }
 
-async fn insert_player(database: &mut AsyncPgConnection, player: Player) -> Result<Player> {
-    use crate::schema::players;
-    debug!("Inserted player: {:?}", player);
+pub async fn insert_player(database: &mut AsyncPgConnection, player: Player) -> Result<Player> {
+    use crate::schema::players::dsl::*;
+    debug!("Inserting player: {:?}", player);
 
-    diesel::insert_into(players::table)
+    let result = diesel::insert_into(players)
         .values(&player)
+        .on_conflict(player_uuid)
+        .do_update()
+        .set(name.eq(&player.name))
         .returning(Player::as_returning())
         .get_result(database)
         .await
-        .map_err(|e| anyhow!(e))
+        .map_err(|e| anyhow!(e))?;
+
+    Ok(result)
 }
 
 async fn get_or_insert_category(
     database: &mut AsyncPgConnection,
     category_name: &str,
 ) -> Result<i32> {
-    use crate::schema::stat_categories::dsl::*;
     use crate::schema::stat_categories::columns;
+    use crate::schema::stat_categories::dsl::*;
 
     let result: Result<i32, _> = stat_categories
         .filter(columns::name.eq(category_name))
@@ -51,49 +57,63 @@ async fn get_or_insert_category(
         .await
         .map_err(|e| anyhow!(e))?;
 
-    debug!("Inserted stat category: {} with id {}", category_name, new_id);
+    debug!(
+        "Inserted stat category: {} with id {}",
+        category_name, new_id
+    );
     Ok(new_id)
 }
 
-async fn insert_stats(
+pub async fn insert_stats(
     database: &mut AsyncPgConnection,
-    player_uuid: Uuid,
+    p_uuid: Uuid,
     stats: StatsFile,
 ) -> Result<()> {
-    use crate::schema::player_stats;
+    use crate::schema::player_stats::columns;
+    use crate::schema::player_stats::dsl::*;
+
+    let stat_count = stats.stats.values().map(|m| m.len()).sum::<usize>();
+    info!("Inserting {} stats for player {}", stat_count, p_uuid);
 
     for (category_name, stat_map) in stats.stats {
-        let stat_categories_id = get_or_insert_category(database, &category_name).await?;
+        let cat_id = get_or_insert_category(database, &category_name).await?;
 
-        for (stat_name, value) in stat_map {
+        for (stat_nm, val) in stat_map {
             let player_stat = PlayerStats {
-                player_uuid,
-                stat_categories_id,
-                stat_name,
-                value,
+                player_uuid: p_uuid,
+                stat_categories_id: cat_id,
+                stat_name: stat_nm,
+                value: val,
             };
 
-            diesel::insert_into(player_stats::table)
+            diesel::insert_into(player_stats)
                 .values(&player_stat)
-                .on_conflict_do_nothing()
+                .on_conflict((
+                    columns::player_uuid,
+                    columns::stat_categories_id,
+                    columns::stat_name,
+                ))
+                .do_update()
+                .set(columns::value.eq(val))
                 .execute(database)
                 .await
                 .map_err(|e| anyhow!(e))?;
         }
     }
 
+    info!("Successfully inserted/updated {} stats for player {}", stat_count, p_uuid);
     Ok(())
 }
 
-// TODO: Implement a connection pool and make this parrarel
 pub async fn populate_database(
     database: &mut AsyncPgConnection,
     stats_folder: &Path,
     mojang_cache: &MojangCache,
 ) -> Result<()> {
-    debug!("Using stats folder: {:?}", stats_folder);
+    info!("Populating database from stats folder: {:?}", stats_folder);
 
     let mut dir_entries = fs::read_dir(stats_folder).await?;
+    let mut players_processed = 0;
 
     while let Some(entry) = dir_entries.next_entry().await? {
         let path = entry.path();
@@ -114,6 +134,8 @@ pub async fn populate_database(
                 .uuid_to_username(&player_uuid)
                 .unwrap_or_else(|| "Unknown".to_string());
 
+            info!("Processing stats for player: {} ({})", player_name, player_uuid);
+
             insert_player(
                 database,
                 Player {
@@ -124,8 +146,10 @@ pub async fn populate_database(
             .await?;
 
             insert_stats(database, player_uuid, player_stats).await?;
+            players_processed += 1;
         }
     }
 
+    info!("Database population complete. Processed {} players", players_processed);
     Ok(())
 }
