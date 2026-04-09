@@ -9,7 +9,14 @@ use utoipa::OpenApi;
 
 #[derive(OpenApi)]
 #[openapi(
-    info(title = "Minecraft Stats API", version = "1.0"),
+    info(
+        title = "Minecraft Stats API",
+        version = "1.0",
+        license(
+            name = "GPL-3.0-or-later",
+            url = "https://www.gnu.org/licenses/gpl-3.0.html"
+        )
+    ),
     paths(categories, categorie, players, player),
     components(schemas(Player, PlayerStats, StatCategorie))
 )]
