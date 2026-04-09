@@ -327,18 +327,13 @@ async fn main() {
 
     let args = Args::parse();
 
-    let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "server/mcstats.db".to_string());
-    let server_folder =
-        PathBuf::from(env::var("WORLD_PATH").unwrap_or_else(|_| "server/".to_string()));
-    let world_folder = server_folder.join("world");
+    let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "data/mcstats.db".to_string());
+    let world_folder = PathBuf::from(env::var("WORLD_PATH").unwrap_or_else(|_| "data/world".to_string()));
 
-    log::info!("Server path: {}", server_folder.to_str().unwrap());
     log::info!("World path: {}", world_folder.to_str().unwrap());
     log::info!("Database URL: {}", database_url);
 
-    let mut world_folder = PathBuf::from(&server_folder);
-    world_folder.push("world");
-    let usercache_path = server_folder.join("usercache.json");
+    let usercache_path = PathBuf::from("data/usercache.json");
 
     log::info!("Loading usercache from: {:?}", usercache_path);
     let username_cache =

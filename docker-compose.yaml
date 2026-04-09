@@ -6,5 +6,6 @@ services:
     ports:
       - 2456:80
     volumes:
-      - ./server:/app/server
+      - ./data/world:/app/data/world
+      - ./data/usercache.json:/app/data/usercache.json
     restart: unless-stopped
