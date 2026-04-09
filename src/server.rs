@@ -38,13 +38,13 @@ pub struct AppState {
 
 #[utoipa::path(
     get,
-    path="/category",
+    path="/categories",
     responses(
         (status = 200, body = Vec<StatCategorie>),
         (status = 500)
     )
 )]
-pub async fn category(State(app_state): State<AppState>) -> impl IntoResponse {
+pub async fn categories(State(app_state): State<AppState>) -> impl IntoResponse {
     match StatCategorieEntity::find()
         .all(app_state.database_connection.as_ref())
         .await
@@ -70,7 +70,7 @@ pub async fn category(State(app_state): State<AppState>) -> impl IntoResponse {
         (status = 500)
     )
 )]
-pub async fn categorie(
+pub async fn category(
     State(app_state): State<AppState>,
     Path(categorie): Path<String>,
     Query(params): Query<SearchParams>,
@@ -216,8 +216,8 @@ pub async fn run_server(database: DatabaseConnection, port: &str) {
 
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
-        .route("/categories", get(category))
-        .route("/categories/{categorie}", get(categorie))
+        .route("/categories", get(categories))
+        .route("/categories/{categorie}", get(category))
         .route("/players", get(players))
         .route("/players/{player}", get(player))
         .merge(
