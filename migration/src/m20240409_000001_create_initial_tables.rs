@@ -73,7 +73,16 @@ impl MigrationTrait for Migration {
         Ok(())
     }
 
-    async fn down(&self, _manager: &SchemaManager) -> Result<(), DbErr> {
+    async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        manager
+            .drop_table(Table::drop().table(PlayerStats::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(StatCategories::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Players::Table).to_owned())
+            .await?;
         Ok(())
     }
 }

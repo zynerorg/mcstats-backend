@@ -153,46 +153,6 @@ impl DatabaseConnection {
         Ok(())
     }
 
-    async fn insert_category(&self, category_name: &str) -> Result<i32> {
-        if let Ok(Some(existing)) = StatCategorieEntity::find()
-            .filter(StatCategorieColumn::Name.eq(category_name))
-            .one(&*self.conn)
-            .await
-        {
-            return Ok(existing.id);
-        }
-
-        let active = StatCategorieActiveModel {
-            id: sea_orm::NotSet,
-            name: sea_orm::Set(category_name.to_string()),
-        };
-
-        let result = StatCategorieEntity::insert(active).exec(&*self.conn).await;
-
-        match result {
-            Ok(inserted) => {
-                let new_id = inserted.last_insert_id;
-                debug!(
-                    "Inserted stat category: {} with id {}",
-                    category_name, new_id
-                );
-                Ok(new_id)
-            }
-            Err(e) => {
-                if e.to_string().contains("UNIQUE constraint failed") {
-                    if let Ok(Some(existing)) = StatCategorieEntity::find()
-                        .filter(StatCategorieColumn::Name.eq(category_name))
-                        .one(&*self.conn)
-                        .await
-                    {
-                        return Ok(existing.id);
-                    }
-                }
-                Err(e).map_err(|e| anyhow!(e))
-            }
-        }
-    }
-
     pub async fn populate(
         &self,
         stats_folder: &Path,

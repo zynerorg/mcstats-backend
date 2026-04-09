@@ -5,7 +5,6 @@ use crate::server::__path_categorie;
 use crate::server::__path_categories;
 use crate::server::__path_player;
 use crate::server::__path_players;
-use crate::server::{categorie, categories, player, players};
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
