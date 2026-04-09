@@ -1,7 +1,7 @@
-use anyhow::{anyhow, Result};
-use diesel::prelude::*;
+use anyhow::{Result, anyhow};
 use diesel::SqliteConnection;
-use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
+use diesel::prelude::*;
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use futures::StreamExt;
 use log::{debug, info};
 use std::path::Path;
@@ -24,10 +24,10 @@ impl DatabaseConnection {
     pub async fn new(url: &str) -> Result<Self> {
         info!("Establishing database connection...");
         let mut conn = SqliteConnection::establish(url)?;
-        
+
         conn.run_pending_migrations(MIGRATIONS)
             .map_err(|e| anyhow!("Migration error: {}", e))?;
-        
+
         info!("Database tables initialized");
         drop(conn);
         Ok(Self {
@@ -46,14 +46,14 @@ impl DatabaseConnection {
 
         let _lock = self.db_lock.lock().await;
         let mut conn = self.get()?;
-        
+
         diesel::insert_into(players)
             .values(&player)
             .on_conflict(player_uuid)
             .do_update()
             .set(name.eq(&player.name))
             .execute(&mut conn)?;
-        
+
         players
             .filter(player_uuid.eq(&player.player_uuid))
             .get_result(&mut conn)
@@ -68,7 +68,7 @@ impl DatabaseConnection {
 
         let _lock = self.db_lock.lock().await;
         let mut conn = self.get()?;
-        
+
         let stat_count = stats.stats.values().map(|m| m.len()).sum::<usize>();
         info!("Inserting {} stats for player {}", stat_count, uuid);
 
@@ -82,6 +82,8 @@ impl DatabaseConnection {
                     stat_name: stat_nm,
                     value: val,
                 };
+
+                debug!("Inserting stat: {:?}", player_stat);
 
                 diesel::insert_into(player_stats)
                     .values(&player_stat)
@@ -104,7 +106,11 @@ impl DatabaseConnection {
         Ok(())
     }
 
-    pub fn insert_category(&self, database: &mut SqliteConnection, category_name: &str) -> Result<i32> {
+    pub fn insert_category(
+        &self,
+        database: &mut SqliteConnection,
+        category_name: &str,
+    ) -> Result<i32> {
         use crate::schema::stat_categories::columns;
         use crate::schema::stat_categories::dsl::*;
 
@@ -184,7 +190,8 @@ impl DatabaseConnection {
         self.insert_player(Player {
             player_uuid: player_uuid.to_string(),
             name: player_name,
-        }).await?;
+        })
+        .await?;
 
         self.insert_stats(player_uuid, player_stats).await?;
 

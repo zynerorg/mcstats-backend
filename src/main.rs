@@ -246,7 +246,10 @@ async fn run_server(database: DatabaseConnection) {
         .with_state(state)
         .layer(cors);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:80").await.unwrap();
+    let port = env::var("PORT").unwrap_or_else(|_| "80".to_string());
+    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
+        .await
+        .unwrap();
     axum::serve(listener, app).await.unwrap();
 }
 
@@ -262,9 +265,11 @@ async fn handle_stats_file_change(
     }
 }
 
-async fn run_syncer(database: DatabaseConnection, username_cache: UsernameCache) {
-    let stats_env = env::var("WORLD_PATH").expect("WORLD_PATH must be set");
-    let world_folder = PathBuf::from(&stats_env);
+async fn run_syncer(
+    database: DatabaseConnection,
+    username_cache: UsernameCache,
+    world_folder: &PathBuf,
+) {
     let stats_folder = world_folder.join("stats");
 
     log::info!("Starting initial population of database from stats folder...");
@@ -322,15 +327,18 @@ async fn main() {
 
     let args = Args::parse();
 
-    let database_url =
-        env::var("DATABASE_URL").unwrap_or_else(|_| "./minecraft_stats.db".to_string());
-    let stats_env = env::var("WORLD_PATH").unwrap_or_else(|_| "/world".to_string());
+    let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "server/mcstats.db".to_string());
+    let server_folder =
+        PathBuf::from(env::var("WORLD_PATH").unwrap_or_else(|_| "server/".to_string()));
+    let world_folder = server_folder.join("world");
 
-    log::info!("World path: {}", stats_env);
+    log::info!("Server path: {}", server_folder.to_str().unwrap());
+    log::info!("World path: {}", world_folder.to_str().unwrap());
     log::info!("Database URL: {}", database_url);
 
-    let world_folder = PathBuf::from(&stats_env);
-    let usercache_path = world_folder.join("usercache.json");
+    let mut world_folder = PathBuf::from(&server_folder);
+    world_folder.push("world");
+    let usercache_path = server_folder.join("usercache.json");
 
     log::info!("Loading usercache from: {:?}", usercache_path);
     let username_cache =
@@ -346,12 +354,12 @@ async fn main() {
         run_server(database).await;
     } else if args.sync_only {
         log::info!("Running syncer only");
-        run_syncer(database, username_cache).await;
+        run_syncer(database, username_cache, &world_folder).await;
     } else {
         log::info!("Running both server and syncer");
         tokio::select! {
             _ = run_server(database.clone()) => {},
-            _ = run_syncer(database.clone(), username_cache.clone()) => {},
+            _ = run_syncer(database.clone(), username_cache.clone(), &world_folder) => {},
         }
     }
 }
