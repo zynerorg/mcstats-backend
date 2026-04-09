@@ -4,6 +4,7 @@ use utoipa::ToSchema;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize, ToSchema)]
 #[sea_orm(table_name = "stat_categories")]
+#[schema(as = StatCategories)]
 pub struct Model {
     #[sea_orm(column_name = "id", primary_key, auto_increment = true)]
     pub id: i32,
