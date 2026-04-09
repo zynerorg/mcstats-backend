@@ -8,3 +8,4 @@
 **/*.md
 **/*.log
 **/db_data
+**/minecraft_stats.db

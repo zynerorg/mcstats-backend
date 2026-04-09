@@ -2,23 +2,23 @@
 
 diesel::table! {
     player_stats (player_uuid, stat_categories_id, stat_name) {
-        player_uuid -> Uuid,
-        stat_categories_id -> Int4,
+        player_uuid -> Text,
+        stat_categories_id -> Integer,
         stat_name -> Text,
-        value -> Int4,
+        value -> Integer,
     }
 }
 
 diesel::table! {
     players (player_uuid) {
-        player_uuid -> Uuid,
+        player_uuid -> Text,
         name -> Text,
     }
 }
 
 diesel::table! {
     stat_categories (id) {
-        id -> Int4,
+        id -> Integer,
         name -> Text,
     }
 }

@@ -1,2 +1,3 @@
 target/
 .env
+minecraft_stats.db

@@ -3,18 +3,13 @@ name = "minecraft-stats"
 version = "0.1.0"
 edition = "2024"
 
-[[bin]]
-name = "syncer"
-path = "src/bin/syncer.rs"
-
-[[bin]]
-name = "endpoint"
-path = "src/bin/endpoint.rs"
-
 [dependencies]
 anyhow = "1.0.102"
-diesel = { version = "2.3.0", features = ["uuid"] }
-diesel-async = { version = "0.8.0", features = ["postgres", "bb8"] }
+diesel = { version = "2.3.0", features = [
+    "uuid",
+    "sqlite",
+] }
+diesel_migrations = { version = "2.3", features = ["sqlite"] }
 dotenvy = "0.15.7"
 env_logger = "0.11.10"
 log = "0.4.29"
@@ -31,3 +26,4 @@ tower-http = { version = "0.6.8", features = ["cors"] }
 utoipa = { version = "5.4.0", features = ["uuid"] }
 utoipa-gen = "5.4.0"
 utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
+clap = { version = "4.5", features = ["derive"] }

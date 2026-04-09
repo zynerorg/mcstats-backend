@@ -1,70 +1,83 @@
 use anyhow::{anyhow, Result};
-use diesel::{ExpressionMethods, QueryDsl, SelectableHelper};
-use diesel_async::pooled_connection::bb8::{Pool, PooledConnection};
-use diesel_async::pooled_connection::AsyncDieselConnectionManager;
-use diesel_async::{AsyncPgConnection, RunQueryDsl};
-use futures::stream::FuturesUnordered;
+use diesel::prelude::*;
+use diesel::SqliteConnection;
+use diesel_migrations::{embed_migrations, EmbeddedMigrations, MigrationHarness};
 use futures::StreamExt;
 use log::{debug, info};
 use std::path::Path;
+use std::sync::Arc;
 use tokio::fs;
 use uuid::Uuid;
 
 use crate::models::{Player, PlayerStats, StatsFile};
 use crate::mojang_utils::UsernameCache;
 
+const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
+
 #[derive(Clone)]
 pub struct DatabaseConnection {
-    pool: Pool<AsyncPgConnection>,
+    url: String,
+    db_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl DatabaseConnection {
     pub async fn new(url: &str) -> Result<Self> {
         info!("Establishing database connection...");
-        let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(url);
-        let pool = Pool::builder().build(config).await?;
-        Ok(Self { pool })
+        let mut conn = SqliteConnection::establish(url)?;
+        
+        conn.run_pending_migrations(MIGRATIONS)
+            .map_err(|e| anyhow!("Migration error: {}", e))?;
+        
+        info!("Database tables initialized");
+        drop(conn);
+        Ok(Self {
+            url: url.to_string(),
+            db_lock: Arc::new(tokio::sync::Mutex::new(())),
+        })
     }
 
-    pub async fn get(&self) -> Result<PooledConnection<'_, AsyncPgConnection>> {
-        self.pool.get().await.map_err(|e| anyhow!(e))
+    pub fn get(&self) -> Result<SqliteConnection> {
+        SqliteConnection::establish(&self.url).map_err(|e| anyhow!(e))
     }
 
     pub async fn insert_player(&self, player: Player) -> Result<Player> {
         use crate::schema::players::dsl::*;
         debug!("Inserting player: {:?}", player);
 
-        let mut database_connection = self.get().await?;
-        let result = diesel::insert_into(players)
+        let _lock = self.db_lock.lock().await;
+        let mut conn = self.get()?;
+        
+        diesel::insert_into(players)
             .values(&player)
             .on_conflict(player_uuid)
             .do_update()
             .set(name.eq(&player.name))
-            .returning(Player::as_returning())
-            .get_result(&mut database_connection)
-            .await
-            .map_err(|e| anyhow!(e))?;
-
-        Ok(result)
+            .execute(&mut conn)?;
+        
+        players
+            .filter(player_uuid.eq(&player.player_uuid))
+            .get_result(&mut conn)
+            .map_err(|e| anyhow!(e))
     }
 
     pub async fn insert_stats(&self, uuid: Uuid, stats: StatsFile) -> Result<()> {
         use crate::schema::player_stats::columns;
         use crate::schema::player_stats::dsl::*;
 
-        let mut database_connection = self.get().await?;
+        let uuid_str = uuid.to_string();
 
+        let _lock = self.db_lock.lock().await;
+        let mut conn = self.get()?;
+        
         let stat_count = stats.stats.values().map(|m| m.len()).sum::<usize>();
         info!("Inserting {} stats for player {}", stat_count, uuid);
 
         for (category_name, stat_map) in stats.stats {
-            let category_id = self
-                .insert_category(&mut database_connection, &category_name)
-                .await?;
+            let category_id = self.insert_category(&mut conn, &category_name)?;
 
             for (stat_nm, val) in stat_map {
                 let player_stat = PlayerStats {
-                    player_uuid: uuid,
+                    player_uuid: uuid_str.clone(),
                     stat_categories_id: category_id,
                     stat_name: stat_nm,
                     value: val,
@@ -79,8 +92,7 @@ impl DatabaseConnection {
                     ))
                     .do_update()
                     .set(columns::value.eq(val))
-                    .execute(&mut database_connection)
-                    .await
+                    .execute(&mut conn)
                     .map_err(|e| anyhow!(e))?;
             }
         }
@@ -92,11 +104,7 @@ impl DatabaseConnection {
         Ok(())
     }
 
-    pub async fn insert_category(
-        &self,
-        database: &mut AsyncPgConnection,
-        category_name: &str,
-    ) -> Result<i32> {
+    pub fn insert_category(&self, database: &mut SqliteConnection, category_name: &str) -> Result<i32> {
         use crate::schema::stat_categories::columns;
         use crate::schema::stat_categories::dsl::*;
 
@@ -104,19 +112,22 @@ impl DatabaseConnection {
             .filter(columns::name.eq(category_name))
             .select(columns::id)
             .get_result::<i32>(database)
-            .await
         {
             return Ok(existing_id);
         }
 
-        let new_id: i32 = diesel::insert_into(stat_categories)
+        diesel::insert_into(stat_categories)
             .values(columns::name.eq(category_name))
             .on_conflict(columns::name)
             .do_update()
             .set(columns::name.eq(category_name))
-            .returning(columns::id)
+            .execute(database)
+            .map_err(|e| anyhow!(e))?;
+
+        let new_id: i32 = stat_categories
+            .filter(columns::name.eq(category_name))
+            .select(columns::id)
             .get_result(database)
-            .await
             .map_err(|e| anyhow!(e))?;
 
         debug!(
@@ -132,7 +143,7 @@ impl DatabaseConnection {
         username_cache: &UsernameCache,
     ) -> Result<()> {
         let mut dir_entries = fs::read_dir(stats_folder).await?;
-        let mut tasks = FuturesUnordered::new();
+        let mut tasks = futures::stream::FuturesUnordered::new();
 
         while let Some(entry) = dir_entries.next_entry().await? {
             let path = entry.path();
@@ -171,10 +182,9 @@ impl DatabaseConnection {
             .unwrap_or_else(|| "Unknown".to_string());
 
         self.insert_player(Player {
-            player_uuid,
+            player_uuid: player_uuid.to_string(),
             name: player_name,
-        })
-        .await?;
+        }).await?;
 
         self.insert_stats(player_uuid, player_stats).await?;
 
