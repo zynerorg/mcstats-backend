@@ -1,101 +1,116 @@
 use anyhow::{Result, anyhow};
-use diesel::SqliteConnection;
-use diesel::prelude::*;
-use diesel_migrations::{EmbeddedMigrations, MigrationHarness, embed_migrations};
 use futures::StreamExt;
 use log::{debug, info};
+use sea_orm::{ActiveModelTrait, ColumnTrait, Database, EntityTrait, QueryFilter};
 use std::path::Path;
 use std::sync::Arc;
-use tokio::fs;
-use uuid::Uuid;
 
-use crate::models::{Player, PlayerStats, StatsFile};
+use crate::entities::player::ActiveModel as PlayerActiveModel;
+use crate::entities::player::Column as PlayerColumn;
+use crate::entities::player::Entity as PlayerEntity;
+use crate::entities::player::Model as Player;
+use crate::entities::player_stats::ActiveModel as PlayerStatsActiveModel;
+use crate::entities::player_stats::Column as PlayerStatsColumn;
+use crate::entities::player_stats::Entity as PlayerStatsEntity;
+use crate::entities::stat_categorie::ActiveModel as StatCategorieActiveModel;
+use crate::entities::stat_categorie::Column as StatCategorieColumn;
+use crate::entities::stat_categorie::Entity as StatCategorieEntity;
+use crate::models::StatsFile;
 use crate::mojang_utils::UsernameCache;
+use migration::{Migrator, MigratorTrait};
 
-const MIGRATIONS: EmbeddedMigrations = embed_migrations!("migrations");
+pub type DbPool = sea_orm::DatabaseConnection;
 
 #[derive(Clone)]
 pub struct DatabaseConnection {
-    url: String,
-    db_lock: Arc<tokio::sync::Mutex<()>>,
+    conn: Arc<DbPool>,
 }
 
 impl DatabaseConnection {
     pub async fn new(url: &str) -> Result<Self> {
         info!("Establishing database connection...");
-        let mut conn = SqliteConnection::establish(url)?;
+        let conn = Database::connect(url).await.map_err(|e| anyhow!(e))?;
+        info!("Database connection established");
 
-        conn.run_pending_migrations(MIGRATIONS)
-            .map_err(|e| anyhow!("Migration error: {}", e))?;
+        info!("Running database migrations...");
+        Migrator::up(&conn, None).await.map_err(|e| anyhow!(e))?;
+        info!("Database migrations complete");
 
-        info!("Database tables initialized");
-        drop(conn);
         Ok(Self {
-            url: url.to_string(),
-            db_lock: Arc::new(tokio::sync::Mutex::new(())),
+            conn: Arc::new(conn),
         })
     }
 
-    pub fn get(&self) -> Result<SqliteConnection> {
-        SqliteConnection::establish(&self.url).map_err(|e| anyhow!(e))
+    pub fn as_ref(&self) -> &DbPool {
+        &self.conn
     }
 
     pub async fn insert_player(&self, player: Player) -> Result<Player> {
-        use crate::schema::players::dsl::*;
         debug!("Inserting player: {:?}", player);
 
-        let _lock = self.db_lock.lock().await;
-        let mut conn = self.get()?;
+        if let Ok(Some(existing)) = PlayerEntity::find()
+            .filter(PlayerColumn::PlayerUuid.eq(&player.player_uuid))
+            .one(&*self.conn)
+            .await
+        {
+            let mut active: PlayerActiveModel = existing.into();
+            active.name = sea_orm::Set(player.name.clone());
+            let updated = active.update(&*self.conn).await.map_err(|e| anyhow!(e))?;
+            return Ok(updated);
+        }
 
-        diesel::insert_into(players)
-            .values(&player)
-            .on_conflict(player_uuid)
-            .do_update()
-            .set(name.eq(&player.name))
-            .execute(&mut conn)?;
+        let active = PlayerActiveModel {
+            player_uuid: sea_orm::Set(player.player_uuid.clone()),
+            name: sea_orm::Set(player.name.clone()),
+        };
+        PlayerEntity::insert(active)
+            .exec(&*self.conn)
+            .await
+            .map_err(|e| anyhow!(e))?;
 
-        players
-            .filter(player_uuid.eq(&player.player_uuid))
-            .get_result(&mut conn)
-            .map_err(|e| anyhow!(e))
+        Ok(Player {
+            player_uuid: player.player_uuid,
+            name: player.name,
+        })
     }
 
-    pub async fn insert_stats(&self, uuid: Uuid, stats: StatsFile) -> Result<()> {
-        use crate::schema::player_stats::columns;
-        use crate::schema::player_stats::dsl::*;
-
+    pub async fn insert_stats(&self, uuid: uuid::Uuid, stats: StatsFile) -> Result<()> {
         let uuid_str = uuid.to_string();
-
-        let _lock = self.db_lock.lock().await;
-        let mut conn = self.get()?;
 
         let stat_count = stats.stats.values().map(|m| m.len()).sum::<usize>();
         info!("Inserting {} stats for player {}", stat_count, uuid);
 
         for (category_name, stat_map) in stats.stats {
-            let category_id = self.insert_category(&mut conn, &category_name)?;
+            let category_id = self.insert_category(&category_name).await?;
 
             for (stat_nm, val) in stat_map {
-                let player_stat = PlayerStats {
-                    player_uuid: uuid_str.clone(),
-                    stat_categories_id: category_id,
-                    stat_name: stat_nm,
-                    value: val,
+                let stat_nm_owned = stat_nm.clone();
+                let player_stat = PlayerStatsActiveModel {
+                    player_uuid: sea_orm::Set(uuid_str.clone()),
+                    stat_categories_id: sea_orm::Set(category_id),
+                    stat_name: sea_orm::Set(stat_nm_owned),
+                    value: sea_orm::Set(val),
                 };
 
                 debug!("Inserting stat: {:?}", player_stat);
 
-                diesel::insert_into(player_stats)
-                    .values(&player_stat)
-                    .on_conflict((
-                        columns::player_uuid,
-                        columns::stat_categories_id,
-                        columns::stat_name,
-                    ))
-                    .do_update()
-                    .set(columns::value.eq(val))
-                    .execute(&mut conn)
-                    .map_err(|e| anyhow!(e))?;
+                let existing = PlayerStatsEntity::find()
+                    .filter(PlayerStatsColumn::PlayerUuid.eq(&uuid_str))
+                    .filter(PlayerStatsColumn::StatCategoriesId.eq(category_id))
+                    .filter(PlayerStatsColumn::StatName.eq(&stat_nm))
+                    .one(&*self.conn)
+                    .await?;
+
+                if let Some(existing) = existing {
+                    let mut active: PlayerStatsActiveModel = existing.into();
+                    active.value = sea_orm::Set(val);
+                    active.update(&*self.conn).await.map_err(|e| anyhow!(e))?;
+                } else {
+                    PlayerStatsEntity::insert(player_stat)
+                        .exec(&*self.conn)
+                        .await
+                        .map_err(|e| anyhow!(e))?;
+                }
             }
         }
 
@@ -106,41 +121,44 @@ impl DatabaseConnection {
         Ok(())
     }
 
-    pub fn insert_category(
-        &self,
-        database: &mut SqliteConnection,
-        category_name: &str,
-    ) -> Result<i32> {
-        use crate::schema::stat_categories::columns;
-        use crate::schema::stat_categories::dsl::*;
-
-        if let Ok(existing_id) = stat_categories
-            .filter(columns::name.eq(category_name))
-            .select(columns::id)
-            .get_result::<i32>(database)
+    async fn insert_category(&self, category_name: &str) -> Result<i32> {
+        if let Ok(Some(existing)) = StatCategorieEntity::find()
+            .filter(StatCategorieColumn::Name.eq(category_name))
+            .one(&*self.conn)
+            .await
         {
-            return Ok(existing_id);
+            return Ok(existing.id);
         }
 
-        diesel::insert_into(stat_categories)
-            .values(columns::name.eq(category_name))
-            .on_conflict(columns::name)
-            .do_update()
-            .set(columns::name.eq(category_name))
-            .execute(database)
-            .map_err(|e| anyhow!(e))?;
+        let active = StatCategorieActiveModel {
+            id: sea_orm::NotSet,
+            name: sea_orm::Set(category_name.to_string()),
+        };
 
-        let new_id: i32 = stat_categories
-            .filter(columns::name.eq(category_name))
-            .select(columns::id)
-            .get_result(database)
-            .map_err(|e| anyhow!(e))?;
+        let result = StatCategorieEntity::insert(active).exec(&*self.conn).await;
 
-        debug!(
-            "Inserted stat category: {} with id {}",
-            category_name, new_id
-        );
-        Ok(new_id)
+        match result {
+            Ok(inserted) => {
+                let new_id = inserted.last_insert_id;
+                debug!(
+                    "Inserted stat category: {} with id {}",
+                    category_name, new_id
+                );
+                Ok(new_id)
+            }
+            Err(e) => {
+                if e.to_string().contains("UNIQUE constraint failed") {
+                    if let Ok(Some(existing)) = StatCategorieEntity::find()
+                        .filter(StatCategorieColumn::Name.eq(category_name))
+                        .one(&*self.conn)
+                        .await
+                    {
+                        return Ok(existing.id);
+                    }
+                }
+                Err(e).map_err(|e| anyhow!(e))
+            }
+        }
     }
 
     pub async fn populate(
@@ -148,7 +166,7 @@ impl DatabaseConnection {
         stats_folder: &Path,
         username_cache: &UsernameCache,
     ) -> Result<()> {
-        let mut dir_entries = fs::read_dir(stats_folder).await?;
+        let mut dir_entries = tokio::fs::read_dir(stats_folder).await?;
         let mut tasks = futures::stream::FuturesUnordered::new();
 
         while let Some(entry) = dir_entries.next_entry().await? {
@@ -178,9 +196,9 @@ impl DatabaseConnection {
             .and_then(|s| s.to_str())
             .ok_or_else(|| anyhow!("Failed to get file stem"))?;
 
-        let player_uuid = Uuid::parse_str(file_stem)?;
+        let player_uuid = uuid::Uuid::parse_str(file_stem)?;
 
-        let stats_content = fs::read_to_string(path).await?;
+        let stats_content = tokio::fs::read_to_string(path).await?;
         let player_stats: StatsFile = serde_json::from_str(&stats_content)?;
 
         let player_name = username_cache

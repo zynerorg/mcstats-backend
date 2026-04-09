@@ -1,4 +1,6 @@
-use crate::models::{Player, PlayerStats, StatCategorie};
+use crate::entities::player::Model as Player;
+use crate::entities::player_stats::Model as PlayerStats;
+use crate::entities::stat_categorie::Model as StatCategorie;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]

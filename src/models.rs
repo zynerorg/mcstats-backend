@@ -1,33 +1,6 @@
-use diesel::prelude::*;
-use serde::{Deserialize, Serialize};
+pub use crate::entities::{Player, PlayerStats, StatCategorie};
+use serde::Deserialize;
 use std::collections::HashMap;
-use utoipa::ToSchema;
-
-#[derive(Queryable, Selectable, Insertable, Debug, Serialize, Deserialize, ToSchema)]
-#[diesel(table_name = crate::schema::players)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-pub struct Player {
-    pub player_uuid: String,
-    pub name: String,
-}
-
-#[derive(Queryable, Selectable, Insertable, Debug, Serialize, Deserialize, ToSchema)]
-#[diesel(table_name = crate::schema::player_stats)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-pub struct PlayerStats {
-    pub player_uuid: String,
-    pub stat_categories_id: i32,
-    pub stat_name: String,
-    pub value: i32,
-}
-
-#[derive(Queryable, Selectable, Insertable, Debug, Serialize, Deserialize, ToSchema)]
-#[diesel(table_name = crate::schema::stat_categories)]
-#[diesel(check_for_backend(diesel::sqlite::Sqlite))]
-pub struct StatCategorie {
-    pub id: i32,
-    pub name: String,
-}
 
 #[derive(Deserialize, Debug)]
 pub struct StatsFile {
