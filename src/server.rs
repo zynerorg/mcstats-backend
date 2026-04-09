@@ -15,9 +15,9 @@ use crate::entities::player::Entity as PlayerEntity;
 use crate::entities::player::Model as Player;
 use crate::entities::player_stats::Column as PlayerStatsColumn;
 use crate::entities::player_stats::Entity as PlayerStatsEntity;
-use crate::entities::stat_categorie::Column as StatCategorieColumn;
-use crate::entities::stat_categorie::Entity as StatCategorieEntity;
-use crate::entities::stat_categorie::Model as StatCategorie;
+use crate::entities::stat_categories::Column as StatCategorieColumn;
+use crate::entities::stat_categories::Entity as StatCategorieEntity;
+use crate::entities::stat_categories::Model as StatCategorie;
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct SearchParams {
@@ -38,27 +38,27 @@ pub struct AppState {
 
 #[utoipa::path(
     get,
-    path="/categories",
+    path="/category",
     responses(
         (status = 200, body = Vec<StatCategorie>),
         (status = 500)
     )
 )]
-pub async fn categories(State(app_state): State<AppState>) -> impl IntoResponse {
+pub async fn category(State(app_state): State<AppState>) -> impl IntoResponse {
     match StatCategorieEntity::find()
         .all(app_state.database_connection.as_ref())
         .await
     {
-        Ok(categories) => Json::<Vec<StatCategorie>>(categories).into_response(),
+        Ok(category) => Json::<Vec<StatCategorie>>(category).into_response(),
         _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
 
 #[utoipa::path(
     get,
-    path = "/categories/{categorie}",
+    path = "/categories/{category}",
     params(
-        ("categorie" = String, Path),
+        ("category" = String, Path),
         ("limit" = Option<u64>, Query),
         ("page" = Option<u64>, Query),
         ("sort_by" = Option<String>, Query),
@@ -216,7 +216,7 @@ pub async fn run_server(database: DatabaseConnection, port: &str) {
 
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
-        .route("/categories", get(categories))
+        .route("/categories", get(category))
         .route("/categories/{categorie}", get(categorie))
         .route("/players", get(players))
         .route("/players/{player}", get(player))

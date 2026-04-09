@@ -24,9 +24,9 @@ pub enum Relation {
     )]
     Player,
     #[sea_orm(
-        belongs_to = "super::stat_categorie::Entity",
+        belongs_to = "super::stat_categories::Entity",
         from = "Column::StatCategoriesId",
-        to = "super::stat_categorie::Column::Id"
+        to = "super::stat_categories::Column::Id"
     )]
     StatCategorie,
 }
