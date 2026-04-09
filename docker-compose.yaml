@@ -7,7 +7,7 @@ services:
       - WORLD_PATH=/app/world
       - RUST_LOG=info
     ports:
-      - 2456:2456
+      - 2456:80
     volumes:
       - ./world:/app/world:ro
     restart: unless-stopped
