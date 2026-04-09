@@ -1,5 +1,6 @@
 use axum::extract::State;
-use axum::{extract::Path, extract::Query, routing::get, Json, Router};
+use axum::http::{HeaderValue, Method};
+use axum::{Json, Router, extract::Path, extract::Query, routing::get};
 use axum::{http::StatusCode, response::IntoResponse};
 use diesel::ExpressionMethods;
 use diesel::QueryDsl;
@@ -15,6 +16,7 @@ use minecraft_stats::{
 use serde::Deserialize;
 use std::env;
 use std::path::PathBuf;
+use tower_http::cors::{Any, CorsLayer};
 use uuid::Uuid;
 
 const DEFAULT_LIMIT: i64 = 25;
@@ -173,6 +175,11 @@ async fn main() {
     world_folder.push("usercache.json");
     let username_cache = UsernameCache::from_usercache(&world_folder).unwrap();
 
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([Method::GET, Method::POST])
+        .allow_headers(Any);
+
     let state = AppState {
         database_connection,
         username_cache,
@@ -186,7 +193,8 @@ async fn main() {
         .route("/players/{player}", get(player))
         .route("/transform/uuid/{uuid}", get(uuid_to_username))
         .route("/transform/name/{name}", get(username_to_uuid))
-        .with_state(state);
+        .with_state(state)
+        .layer(cors);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:2456").await.unwrap();
     axum::serve(listener, app).await.unwrap();
