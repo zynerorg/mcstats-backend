@@ -43,7 +43,6 @@ struct SearchParams {
 #[derive(Clone)]
 struct AppState {
     pub database_connection: DatabaseConnection,
-    pub username_cache: UsernameCache,
 }
 
 #[derive(Parser)]
@@ -227,7 +226,7 @@ async fn player(
     }
 }
 
-async fn run_server(database: DatabaseConnection, username_cache: UsernameCache) {
+async fn run_server(database: DatabaseConnection) {
     let cors = CorsLayer::new()
         .allow_origin(Any)
         .allow_methods([Method::GET, Method::POST])
@@ -235,7 +234,6 @@ async fn run_server(database: DatabaseConnection, username_cache: UsernameCache)
 
     let state = AppState {
         database_connection: database,
-        username_cache,
     };
 
     let app = Router::new()
@@ -324,7 +322,8 @@ async fn main() {
 
     let args = Args::parse();
 
-    let database_url = env::var("DATABASE_URL").unwrap_or_else(|_| "./minecraft_stats.db".to_string());
+    let database_url =
+        env::var("DATABASE_URL").unwrap_or_else(|_| "./minecraft_stats.db".to_string());
     let stats_env = env::var("WORLD_PATH").unwrap_or_else(|_| "/world".to_string());
 
     log::info!("World path: {}", stats_env);
@@ -344,14 +343,14 @@ async fn main() {
 
     if args.server_only {
         log::info!("Running server only");
-        run_server(database, username_cache).await;
+        run_server(database).await;
     } else if args.sync_only {
         log::info!("Running syncer only");
         run_syncer(database, username_cache).await;
     } else {
         log::info!("Running both server and syncer");
         tokio::select! {
-            _ = run_server(database.clone(), username_cache.clone()) => {},
+            _ = run_server(database.clone()) => {},
             _ = run_syncer(database.clone(), username_cache.clone()) => {},
         }
     }
