@@ -23,8 +23,6 @@ services:
     image: minecraft-stats:latest
     env_file:
       - .env
-    volumes:
-      - ./world:/app/world:ro
     ports:
       - "2456:2456"
     depends_on:

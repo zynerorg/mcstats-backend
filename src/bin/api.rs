@@ -1,11 +1,12 @@
 use axum::extract::State;
-use axum::http::{HeaderValue, Method};
+use axum::http::Method;
 use axum::{Json, Router, extract::Path, extract::Query, routing::get};
 use axum::{http::StatusCode, response::IntoResponse};
 use diesel::ExpressionMethods;
 use diesel::QueryDsl;
 use diesel_async::RunQueryDsl;
 use dotenvy::dotenv;
+use minecraft_stats::api_docs::ApiDoc;
 use minecraft_stats::models::{Player, PlayerStats, StatCategorie};
 use minecraft_stats::mojang_utils::UsernameCache;
 use minecraft_stats::schema::players;
@@ -17,15 +18,22 @@ use serde::Deserialize;
 use std::env;
 use std::path::PathBuf;
 use tower_http::cors::{Any, CorsLayer};
+use utoipa::IntoParams;
+use utoipa::OpenApi;
+use utoipa_swagger_ui::SwaggerUi;
 use uuid::Uuid;
 
 const DEFAULT_LIMIT: i64 = 25;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, IntoParams)]
 struct SearchParams {
+    #[serde(default)]
     limit: Option<i64>,
+    #[serde(default)]
     page: Option<i64>,
+    #[serde(default)]
     sort_by: Option<String>,
+    #[serde(default)]
     order: Option<String>,
 }
 
@@ -35,6 +43,14 @@ struct AppState {
     pub username_cache: UsernameCache,
 }
 
+#[utoipa::path(
+    get,
+    path="/categories",
+    responses(
+        (status = 200, body = Vec<StatCategorie>),
+        (status = 500)
+    )
+)]
 async fn categories(State(app_state): State<AppState>) -> impl IntoResponse {
     match app_state.database_connection.get().await {
         Ok(mut conn) => {
@@ -49,6 +65,22 @@ async fn categories(State(app_state): State<AppState>) -> impl IntoResponse {
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/categories/{categorie}",
+    params(
+        ("categorie" = String, Path),
+        ("limit" = Option<i64>, Query),
+        ("page" = Option<i64>, Query),
+        ("sort_by" = Option<String>, Query),
+        ("order" = Option<String>, Query)
+    ),
+    responses(
+        (status = 200),
+        (status = 404),
+        (status = 500)
+    )
+)]
 async fn categorie(
     State(app_state): State<AppState>,
     Path(categorie): Path<String>,
@@ -104,6 +136,14 @@ async fn categorie(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/players",
+    responses(
+        (status = 200, body = Vec<Player>),
+        (status = 500)
+    )
+)]
 async fn players(State(app_state): State<AppState>) -> impl IntoResponse {
     match app_state.database_connection.get().await {
         Ok(mut conn) => {
@@ -117,6 +157,21 @@ async fn players(State(app_state): State<AppState>) -> impl IntoResponse {
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/players/{player_uuid}",
+    params(
+        ("player_uuid" = Uuid, Path),
+        ("limit" = Option<i64>, Query),
+        ("page" = Option<i64>, Query),
+        ("sort_by" = Option<String>, Query),
+        ("order" = Option<String>, Query)
+    ),
+    responses(
+        (status = 200),
+        (status = 500)
+    )
+)]
 async fn player(
     State(app_state): State<AppState>,
     Path(player_uuid): Path<Uuid>,
@@ -144,24 +199,6 @@ async fn player(
     }
 }
 
-async fn uuid_to_username(
-    State(app_state): State<AppState>,
-    Path(uuid): Path<Uuid>,
-) -> impl IntoResponse {
-    app_state.username_cache.uuid_to_username(&uuid).unwrap()
-}
-
-async fn username_to_uuid(
-    State(app_state): State<AppState>,
-    Path(name): Path<String>,
-) -> impl IntoResponse {
-    app_state
-        .username_cache
-        .username_to_uuid(&name)
-        .unwrap()
-        .to_string()
-}
-
 #[tokio::main]
 async fn main() {
     let _ = dotenv();
@@ -170,10 +207,6 @@ async fn main() {
     let database_connection = DatabaseConnection::new(&database_url)
         .await
         .expect("Could not connect to database");
-
-    let mut world_folder = PathBuf::from(env::var("WORLD_PATH").expect("WORLD_PATH must be set"));
-    world_folder.push("usercache.json");
-    let username_cache = UsernameCache::from_usercache(&world_folder).unwrap();
 
     let cors = CorsLayer::new()
         .allow_origin(Any)
@@ -191,8 +224,7 @@ async fn main() {
         .route("/categories/{categorie}", get(categorie))
         .route("/players", get(players))
         .route("/players/{player}", get(player))
-        .route("/transform/uuid/{uuid}", get(uuid_to_username))
-        .route("/transform/name/{name}", get(username_to_uuid))
+        .merge(SwaggerUi::new("/docs").url("/openapi.json", ApiDoc::openapi()))
         .with_state(state)
         .layer(cors);
 

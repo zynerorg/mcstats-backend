@@ -2,8 +2,9 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
+use utoipa::ToSchema;
 
-#[derive(Queryable, Selectable, Insertable, Debug, Serialize, Deserialize)]
+#[derive(Queryable, Selectable, Insertable, Debug, Serialize, Deserialize, ToSchema)]
 #[diesel(table_name = crate::schema::players)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct Player {
@@ -11,7 +12,7 @@ pub struct Player {
     pub name: String,
 }
 
-#[derive(Queryable, Selectable, Insertable, Debug, Serialize, Deserialize)]
+#[derive(Queryable, Selectable, Insertable, Debug, Serialize, Deserialize, ToSchema)]
 #[diesel(table_name = crate::schema::player_stats)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct PlayerStats {
@@ -21,7 +22,7 @@ pub struct PlayerStats {
     pub value: i32,
 }
 
-#[derive(Queryable, Selectable, Insertable, Debug, Serialize, Deserialize)]
+#[derive(Queryable, Selectable, Insertable, Debug, Serialize, Deserialize, ToSchema)]
 #[diesel(table_name = crate::schema::stat_categories)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct StatCategorie {
