@@ -92,8 +92,8 @@ pub async fn categorie(
         _ => return StatusCode::NOT_FOUND.into_response(),
     };
 
-    let mut query = PlayerStatsEntity::find()
-        .filter(PlayerStatsColumn::StatCategoriesId.eq(category.id));
+    let mut query =
+        PlayerStatsEntity::find().filter(PlayerStatsColumn::StatCategoriesId.eq(category.id));
 
     if sort_by_owned == "stat_name" {
         if order_owned == "asc" {
@@ -171,8 +171,8 @@ pub async fn player(
     let order_owned = params.order.clone().unwrap_or_else(|| "desc".to_string());
     let player_uuid_str = player_uuid.to_string();
 
-    let mut query = PlayerStatsEntity::find()
-        .filter(PlayerStatsColumn::PlayerUuid.eq(&player_uuid_str));
+    let mut query =
+        PlayerStatsEntity::find().filter(PlayerStatsColumn::PlayerUuid.eq(&player_uuid_str));
 
     if sort_by_owned == "stat_name" {
         if order_owned == "asc" {

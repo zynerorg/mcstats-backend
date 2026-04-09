@@ -8,8 +8,6 @@ pub struct Migrator;
 
 impl MigratorTrait for Migrator {
     fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        vec![Box::new(
-            m20240409_000001_create_initial_tables::Migration,
-        )]
+        vec![Box::new(m20240409_000001_create_initial_tables::Migration)]
     }
 }

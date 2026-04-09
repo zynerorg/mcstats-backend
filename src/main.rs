@@ -34,9 +34,13 @@ async fn main() {
         UsernameCache::from_usercache(&config.usercache_path).expect("Failed to load usercache");
     log::info!("Loaded {} players from usercache", username_cache.len());
 
-    let database = DatabaseConnection::new(&config.database_url)
-        .await
-        .expect("Could not connect to database");
+    let database = DatabaseConnection::new(
+        &config.database_url,
+        config.database_pool_size,
+        config.database_concurrency_limit,
+    )
+    .await
+    .expect("Could not connect to database");
 
     if args.server_only {
         log::info!("Running server only");

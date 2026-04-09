@@ -1,7 +1,10 @@
 use anyhow::{Result, anyhow};
 use futures::StreamExt;
 use log::{debug, info};
-use sea_orm::{ActiveModelTrait, ColumnTrait, Database, EntityTrait, QueryFilter};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, ConnectOptions, Database, EntityTrait, QueryFilter,
+    TransactionTrait,
+};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -10,7 +13,6 @@ use crate::entities::player::Column as PlayerColumn;
 use crate::entities::player::Entity as PlayerEntity;
 use crate::entities::player::Model as Player;
 use crate::entities::player_stats::ActiveModel as PlayerStatsActiveModel;
-use crate::entities::player_stats::Column as PlayerStatsColumn;
 use crate::entities::player_stats::Entity as PlayerStatsEntity;
 use crate::entities::stat_categorie::ActiveModel as StatCategorieActiveModel;
 use crate::entities::stat_categorie::Column as StatCategorieColumn;
@@ -24,13 +26,16 @@ pub type DbPool = sea_orm::DatabaseConnection;
 #[derive(Clone)]
 pub struct DatabaseConnection {
     conn: Arc<DbPool>,
+    concurrency_limit: usize,
 }
 
 impl DatabaseConnection {
-    pub async fn new(url: &str) -> Result<Self> {
+    pub async fn new(url: &str, pool_size: u32, concurrency_limit: usize) -> Result<Self> {
         info!("Establishing database connection...");
-        let conn = Database::connect(url).await.map_err(|e| anyhow!(e))?;
-        info!("Database connection established");
+        let mut opt = ConnectOptions::new(url);
+        opt.max_connections(pool_size);
+        let conn = Database::connect(opt).await.map_err(|e| anyhow!(e))?;
+        info!("Database connection established (pool_size: {})", pool_size);
 
         info!("Running database migrations...");
         Migrator::up(&conn, None).await.map_err(|e| anyhow!(e))?;
@@ -38,6 +43,7 @@ impl DatabaseConnection {
 
         Ok(Self {
             conn: Arc::new(conn),
+            concurrency_limit,
         })
     }
 
@@ -80,44 +86,70 @@ impl DatabaseConnection {
         let stat_count = stats.stats.values().map(|m| m.len()).sum::<usize>();
         info!("Inserting {} stats for player {}", stat_count, uuid);
 
-        for (category_name, stat_map) in stats.stats {
-            let category_id = self.insert_category(&category_name).await?;
+        let conn = self.conn.as_ref();
 
-            for (stat_nm, val) in stat_map {
-                let stat_nm_owned = stat_nm.clone();
-                let player_stat = PlayerStatsActiveModel {
-                    player_uuid: sea_orm::Set(uuid_str.clone()),
-                    stat_categories_id: sea_orm::Set(category_id),
-                    stat_name: sea_orm::Set(stat_nm_owned),
-                    value: sea_orm::Set(val),
-                };
-
-                debug!("Inserting stat: {:?}", player_stat);
-
-                let existing = PlayerStatsEntity::find()
-                    .filter(PlayerStatsColumn::PlayerUuid.eq(&uuid_str))
-                    .filter(PlayerStatsColumn::StatCategoriesId.eq(category_id))
-                    .filter(PlayerStatsColumn::StatName.eq(&stat_nm))
-                    .one(&*self.conn)
-                    .await?;
-
-                if let Some(existing) = existing {
-                    let mut active: PlayerStatsActiveModel = existing.into();
-                    active.value = sea_orm::Set(val);
-                    active.update(&*self.conn).await.map_err(|e| anyhow!(e))?;
-                } else {
-                    PlayerStatsEntity::insert(player_stat)
-                        .exec(&*self.conn)
+        conn.transaction::<_, (), sea_orm::DbErr>(|txn| {
+            Box::pin(async move {
+                for (category_name, stat_map) in stats.stats {
+                    let category_id = if let Ok(Some(existing)) = StatCategorieEntity::find()
+                        .filter(StatCategorieColumn::Name.eq(&category_name))
+                        .one(txn)
                         .await
-                        .map_err(|e| anyhow!(e))?;
-                }
-            }
-        }
+                    {
+                        existing.id
+                    } else {
+                        let active = StatCategorieActiveModel {
+                            id: sea_orm::NotSet,
+                            name: sea_orm::Set(category_name.clone()),
+                        };
+                        let result = StatCategorieEntity::insert(active).exec(txn).await;
+                        match result {
+                            Ok(inserted) => inserted.last_insert_id,
+                            Err(e) => {
+                                if e.to_string().contains("UNIQUE constraint failed") {
+                                    StatCategorieEntity::find()
+                                        .filter(StatCategorieColumn::Name.eq(&category_name))
+                                        .one(txn)
+                                        .await
+                                        .map_err(|e| sea_orm::DbErr::Custom(e.to_string()))?
+                                        .map(|c| c.id)
+                                        .unwrap_or_else(|| {
+                                            panic!("Failed to find category after insert failed");
+                                        })
+                                } else {
+                                    return Err(e);
+                                }
+                            }
+                        }
+                    };
 
-        info!(
-            "Successfully inserted/updated {} stats for player {}",
-            stat_count, uuid
-        );
+                    for (stat_nm, val) in stat_map {
+                        let stat_nm_owned = stat_nm.clone();
+                        let player_stat = PlayerStatsActiveModel {
+                            player_uuid: sea_orm::Set(uuid_str.clone()),
+                            stat_categories_id: sea_orm::Set(category_id),
+                            stat_name: sea_orm::Set(stat_nm_owned),
+                            value: sea_orm::Set(val),
+                        };
+
+                        if let Err(e) = PlayerStatsEntity::insert(player_stat).exec(txn).await {
+                            if !e.to_string().contains("UNIQUE constraint failed") {
+                                return Err(e);
+                            }
+                        }
+                    }
+                }
+
+                info!(
+                    "Successfully inserted {} stats for player {}",
+                    stat_count, uuid
+                );
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| anyhow!(e))?;
+
         Ok(())
     }
 
@@ -167,21 +199,31 @@ impl DatabaseConnection {
         username_cache: &UsernameCache,
     ) -> Result<()> {
         let mut dir_entries = tokio::fs::read_dir(stats_folder).await?;
-        let mut tasks = futures::stream::FuturesUnordered::new();
+        let mut paths = Vec::new();
 
         while let Some(entry) = dir_entries.next_entry().await? {
             let path = entry.path();
-
             if path.extension().map_or(false, |ext| ext == "json") {
-                let db = self.clone();
-                let cache = username_cache.clone();
-                tasks.push(async move { db.process_stats_file(&path, &cache).await });
+                paths.push(path);
             }
         }
 
-        while let Some(result) = tasks.next().await {
-            result?;
-        }
+        let db = self.clone();
+        let cache = username_cache.clone();
+
+        futures::stream::iter(paths)
+            .map(|path| {
+                let db = db.clone();
+                let cache = cache.clone();
+                async move { db.process_stats_file(&path, &cache).await }
+            })
+            .buffer_unordered(self.concurrency_limit)
+            .for_each(|result| async {
+                if let Err(e) = result {
+                    log::error!("Error processing stats file: {}", e);
+                }
+            })
+            .await;
 
         Ok(())
     }

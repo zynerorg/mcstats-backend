@@ -50,9 +50,21 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(PlayerStats::Table)
                     .col(ColumnDef::new(PlayerStats::PlayerUuid).text().not_null())
-                    .col(ColumnDef::new(PlayerStats::StatCategoriesId).integer().not_null())
+                    .col(
+                        ColumnDef::new(PlayerStats::StatCategoriesId)
+                            .integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(PlayerStats::StatName).text().not_null())
                     .col(ColumnDef::new(PlayerStats::Value).integer().not_null())
+                    .primary_key(
+                        Index::create()
+                            .name("pk_player_stats")
+                            .col(PlayerStats::PlayerUuid)
+                            .col(PlayerStats::StatCategoriesId)
+                            .col(PlayerStats::StatName)
+                            .primary(),
+                    )
                     .if_not_exists()
                     .to_owned(),
             )
