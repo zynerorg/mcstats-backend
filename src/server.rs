@@ -18,6 +18,7 @@ use crate::entities::player_stats::Entity as PlayerStatsEntity;
 use crate::entities::stat_categories::Column as StatCategorieColumn;
 use crate::entities::stat_categories::Entity as StatCategorieEntity;
 use crate::entities::stat_categories::Model as StatCategorie;
+use crate::models::{CategoryStatsResponse, PlayerStatsResponse};
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct SearchParams {
@@ -65,7 +66,7 @@ pub async fn categories(State(app_state): State<AppState>) -> impl IntoResponse 
         ("order" = Option<String>, Query)
     ),
     responses(
-        (status = 200),
+        (status = 200, body = CategoryStatsResponse),
         (status = 404),
         (status = 500)
     )
@@ -118,7 +119,7 @@ pub async fn category(
         .await
     {
         Ok(stats) => {
-            Json(serde_json::json!({ "category": category, "stats": stats })).into_response()
+            Json(CategoryStatsResponse { category, stats }).into_response()
         }
         _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
@@ -153,7 +154,7 @@ pub async fn players(State(app_state): State<AppState>) -> impl IntoResponse {
         ("order" = Option<String>, Query)
     ),
     responses(
-        (status = 200),
+        (status = 200, body = PlayerStatsResponse),
         (status = 500)
     )
 )]
@@ -196,8 +197,11 @@ pub async fn player(
         .all(app_state.database_connection.as_ref())
         .await
     {
-        Ok(stats) => Json(serde_json::json!({ "player_uuid": player_uuid_str, "stats": stats }))
-            .into_response(),
+        Ok(stats) => Json(PlayerStatsResponse {
+            player_uuid: player_uuid_str,
+            stats,
+        })
+        .into_response(),
         _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
