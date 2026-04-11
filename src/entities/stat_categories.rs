@@ -4,7 +4,7 @@ use utoipa::ToSchema;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize, ToSchema)]
 #[sea_orm(table_name = "stat_categories")]
-#[schema(as = StatCategories)]
+#[schema(as = StatCategory)]
 pub struct Model {
     #[sea_orm(column_name = "id", primary_key, auto_increment = true)]
     pub id: i32,
@@ -16,3 +16,11 @@ pub struct Model {
 pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
+
+use super::player_stats::Model as PlayerStatsModel;
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct CategoryStatsResponse {
+    pub category: Model,
+    pub stats: Vec<PlayerStatsModel>,
+}

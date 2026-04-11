@@ -17,9 +17,15 @@ use crate::entities::player_stats::Entity as PlayerStatsEntity;
 use crate::entities::stat_categories::ActiveModel as StatCategorieActiveModel;
 use crate::entities::stat_categories::Column as StatCategorieColumn;
 use crate::entities::stat_categories::Entity as StatCategorieEntity;
-use crate::models::StatsFile;
 use crate::mojang_utils::UsernameCache;
 use migration::{Migrator, MigratorTrait};
+use serde::Deserialize;
+use std::collections::HashMap;
+
+#[derive(Deserialize, Debug)]
+pub struct StatsFile {
+    pub stats: HashMap<String, HashMap<String, i32>>,
+}
 
 pub type DbPool = sea_orm::DatabaseConnection;
 

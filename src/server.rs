@@ -20,7 +20,7 @@ use crate::entities::player_stats::Entity as PlayerStatsEntity;
 use crate::entities::stat_categories::Column as StatCategorieColumn;
 use crate::entities::stat_categories::Entity as StatCategorieEntity;
 use crate::entities::stat_categories::Model as StatCategorie;
-use crate::models::{CategoryStatsResponse, PlayerStatsResponse};
+use crate::entities::{CategoryStatsResponse, PlayerStatsResponse};
 
 const DEFAULT_LIMIT: u64 = 25;
 const DEFAULT_PAGE: u64 = 1;

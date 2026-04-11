@@ -33,3 +33,9 @@ pub enum Relation {
 }
 
 impl ActiveModelBehavior for ActiveModel {}
+
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
+pub struct PlayerStatsResponse {
+    pub player_uuid: String,
+    pub stats: Vec<Model>,
+}

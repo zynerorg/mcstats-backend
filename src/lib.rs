@@ -2,8 +2,6 @@ pub mod api_docs;
 pub mod config;
 pub mod database;
 pub mod entities;
-pub mod models;
 pub mod mojang_utils;
-pub mod schema;
 pub mod server;
 pub mod syncer;

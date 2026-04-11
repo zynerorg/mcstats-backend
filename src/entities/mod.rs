@@ -6,5 +6,7 @@ pub use player::Entity as PlayerEntity;
 pub use player::Model as Player;
 pub use player_stats::Entity as PlayerStatsEntity;
 pub use player_stats::Model as PlayerStats;
+pub use player_stats::PlayerStatsResponse;
+pub use stat_categories::CategoryStatsResponse;
 pub use stat_categories::Entity as StatCategorieEntity;
 pub use stat_categories::Model as StatCategorie;
