@@ -228,7 +228,7 @@ pub async fn run_server(database: DatabaseConnection, config: Config) {
     };
 
     let app = Router::new()
-        .route("/", get(|| async { "Hello, World!" }))
+        .route("/", get(|| async { "Hello, from mcstats!" }))
         .route("/categories", get(categories))
         .route("/categories/{categorie}", get(category))
         .route("/players", get(players))
