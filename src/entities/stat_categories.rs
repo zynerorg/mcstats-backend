@@ -17,10 +17,3 @@ pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
 
-use super::player_stats::Model as PlayerStatsModel;
-
-#[derive(Debug, Serialize, Deserialize, ToSchema)]
-pub struct CategoryStatsResponse {
-    pub category: Model,
-    pub stats: Vec<PlayerStatsModel>,
-}

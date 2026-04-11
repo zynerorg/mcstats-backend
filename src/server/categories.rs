@@ -1,5 +1,5 @@
 use crate::entities::{
-    CategoryStatsResponse, PlayerStatsColumn, PlayerStatsEntity, StatCategory as StatCategorie,
+    PlayerStats, PlayerStatsColumn, PlayerStatsEntity, StatCategory as StatCategorie,
     StatCategoryColumn, StatCategoryEntity,
 };
 use axum::http::StatusCode;
@@ -41,7 +41,7 @@ pub async fn categories(State(app_state): State<AppState>) -> impl IntoResponse 
         ("order" = Option<String>, Query)
     ),
     responses(
-        (status = 200, body = CategoryStatsResponse),
+        (status = 200, body = Vec<PlayerStats>),
         (status = 404),
         (status = 500)
     )
@@ -74,7 +74,7 @@ pub async fn category(
         .all(app_state.database_connection.as_ref())
         .await
     {
-        Ok(stats) => Json(CategoryStatsResponse { category, stats }).into_response(),
+        Ok(stats) => Json(stats).into_response(),
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }

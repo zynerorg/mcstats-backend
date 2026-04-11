@@ -4,7 +4,7 @@ use utoipa::OpenApi;
 use crate::config::Config;
 use crate::database::DatabaseConnection;
 use crate::server::categories::{categories, category};
-use crate::server::players::{player, players};
+use crate::server::players::{player, player_by_category, players};
 
 #[derive(Clone)]
 pub struct AppState {
@@ -31,6 +31,7 @@ pub async fn run_server(database: DatabaseConnection, config: Config) {
         .route("/categories/{categorie}", get(category))
         .route("/players", get(players))
         .route("/players/{player}", get(player))
+        .route("/players/{player}/{category}", get(player_by_category))
         .merge(
             utoipa_swagger_ui::SwaggerUi::new("/docs")
                 .url("/openapi.json", crate::api_docs::ApiDoc::openapi()),
