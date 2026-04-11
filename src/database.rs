@@ -174,8 +174,8 @@ impl DatabaseConnection {
         futures::stream::iter(paths)
             .map(|path| {
                 let db = db.clone();
-                let cache = cache.clone();
-                async move { db.process_stats_file(&path, &cache).await }
+                let mut cache = cache.clone();
+                async move { db.process_stats_file(&path, &mut cache).await }
             })
             .buffer_unordered(self.concurrency_limit)
             .for_each(|result| async {
@@ -191,7 +191,7 @@ impl DatabaseConnection {
     pub async fn process_stats_file(
         &self,
         path: &Path,
-        username_cache: &UsernameCache,
+        username_cache: &mut UsernameCache,
     ) -> Result<()> {
         let file_stem = path
             .file_stem()
@@ -205,6 +205,7 @@ impl DatabaseConnection {
 
         let player_name = username_cache
             .uuid_to_username(&player_uuid)
+            .await
             .unwrap_or_else(|| "Unknown".to_string());
 
         self.insert_player(Player {

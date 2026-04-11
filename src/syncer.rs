@@ -10,7 +10,7 @@ use crate::mojang_utils::UsernameCache;
 async fn handle_stats_file_change(
     db: &DatabaseConnection,
     path: &PathBuf,
-    username_cache: &UsernameCache,
+    username_cache: &mut UsernameCache,
 ) {
     if let Err(e) = db.process_stats_file(path, username_cache).await {
         log::error!("Error processing stats file {:?}: {:?}", path, e);
@@ -33,7 +33,7 @@ pub async fn run_syncer(
 
     let db = database.clone();
     let stats_path = stats_folder.clone();
-    let cache = username_cache.clone();
+    let mut cache = username_cache.clone();
 
     let (tx, mut rx) = mpsc::channel(100);
 
@@ -62,7 +62,7 @@ pub async fn run_syncer(
         let path = event.path;
         if path.extension().is_some_and(|ext| ext == "json") {
             log::info!("Detected change in: {:?}", path);
-            handle_stats_file_change(&db, &path, &cache).await;
+            handle_stats_file_change(&db, &path, &mut cache).await;
         }
     }
 }

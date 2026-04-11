@@ -32,7 +32,6 @@ async fn main() {
 
     let username_cache =
         UsernameCache::from_usercache(&config.usercache_path).expect("Failed to load usercache");
-    log::info!("Loaded {} players from usercache", username_cache.len());
 
     let database = DatabaseConnection::new(
         &config.database_url,
