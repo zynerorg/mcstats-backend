@@ -7,10 +7,14 @@ use anyhow::{Result, anyhow};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 impl DatabaseConnection {
-    pub async fn get_or_create_category(&self, name: &str) -> Result<i32> {
+    pub async fn get_or_create_category(
+        &self,
+        txn: &sea_orm::DatabaseTransaction,
+        name: &str,
+    ) -> Result<i32> {
         if let Some(existing) = StatCategoryEntity::find()
             .filter(StatCategoryColumn::Name.eq(name))
-            .one(self.as_ref())
+            .one(txn)
             .await?
         {
             return Ok(existing.id);
@@ -21,12 +25,12 @@ impl DatabaseConnection {
             name: sea_orm::Set(name.to_string()),
         };
 
-        match StatCategoryEntity::insert(active).exec(self.as_ref()).await {
+        match StatCategoryEntity::insert(active).exec(txn).await {
             Ok(res) => Ok(res.last_insert_id),
             Err(e) if e.to_string().contains("UNIQUE") => {
                 let found = StatCategoryEntity::find()
                     .filter(StatCategoryColumn::Name.eq(name))
-                    .one(self.as_ref())
+                    .one(txn)
                     .await?
                     .map(|c| c.id);
                 found.ok_or_else(|| anyhow!("Category missing after conflict"))

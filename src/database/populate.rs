@@ -9,7 +9,7 @@ use std::path::Path;
 
 impl DatabaseConnection {
     pub async fn populate(&self, stats_folder: &Path, cache: &UsernameCache) -> Result<()> {
-        let files = collect_json_files(stats_folder).await?;
+        let files = self.collect_json_files(stats_folder).await?;
 
         let db = self.clone();
         let cache = cache.clone();
@@ -33,8 +33,8 @@ impl DatabaseConnection {
     }
 
     pub async fn process_stats_file(&self, path: &Path, cache: &mut UsernameCache) -> Result<()> {
-        let uuid = extract_uuid(path)?;
-        let stats_data = load_stats(path).await?;
+        let uuid = self.extract_uuid(path)?;
+        let stats_data = self.load_stats(path).await?;
 
         let name = cache
             .uuid_to_username(&uuid)
@@ -51,32 +51,32 @@ impl DatabaseConnection {
 
         Ok(())
     }
-}
 
-async fn collect_json_files(folder: &Path) -> Result<Vec<std::path::PathBuf>> {
-    let mut entries = tokio::fs::read_dir(folder).await?;
-    let mut files = Vec::new();
+    async fn collect_json_files(&self, folder: &Path) -> Result<Vec<std::path::PathBuf>> {
+        let mut entries = tokio::fs::read_dir(folder).await?;
+        let mut files = Vec::new();
 
-    while let Some(entry) = entries.next_entry().await? {
-        let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) == Some("json") {
-            files.push(path);
+        while let Some(entry) = entries.next_entry().await? {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) == Some("json") {
+                files.push(path);
+            }
         }
+
+        Ok(files)
     }
 
-    Ok(files)
-}
+    fn extract_uuid(&self, path: &Path) -> Result<uuid::Uuid> {
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .ok_or_else(|| anyhow!("Invalid file name"))?;
 
-fn extract_uuid(path: &Path) -> Result<uuid::Uuid> {
-    let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .ok_or_else(|| anyhow!("Invalid file name"))?;
+        Ok(uuid::Uuid::parse_str(stem)?)
+    }
 
-    Ok(uuid::Uuid::parse_str(stem)?)
-}
-
-async fn load_stats(path: &Path) -> Result<StatsFile> {
-    let data = tokio::fs::read_to_string(path).await?;
-    Ok(serde_json::from_str(&data)?)
+    async fn load_stats(&self, path: &Path) -> Result<StatsFile> {
+        let data = tokio::fs::read_to_string(path).await?;
+        Ok(serde_json::from_str(&data)?)
+    }
 }
