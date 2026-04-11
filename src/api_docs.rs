@@ -1,10 +1,10 @@
 use crate::entities::player::Model as Player;
 use crate::entities::player_stats::Model as PlayerStats;
-use crate::entities::stat_categories::Model as StatCategorie;
-use crate::server::__path_categories;
-use crate::server::__path_category;
-use crate::server::__path_player;
-use crate::server::__path_players;
+use crate::entities::stat_categories::Model as StatCategory;
+use crate::server::categories::__path_categories;
+use crate::server::categories::__path_category;
+use crate::server::players::__path_player;
+use crate::server::players::__path_players;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
@@ -18,6 +18,6 @@ use utoipa::OpenApi;
         )
     ),
     paths(category, categories, players, player),
-    components(schemas(Player, PlayerStats, StatCategorie))
+    components(schemas(Player, PlayerStats, StatCategory))
 )]
 pub struct ApiDoc;

@@ -2,7 +2,7 @@ use clap::Parser;
 use minecraft_stats::config::Config;
 use minecraft_stats::database::DatabaseConnection;
 use minecraft_stats::mojang_utils::UsernameCache;
-use minecraft_stats::server;
+use minecraft_stats::server::server;
 use minecraft_stats::syncer;
 
 #[derive(Parser)]
