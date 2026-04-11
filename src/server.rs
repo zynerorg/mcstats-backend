@@ -1,15 +1,17 @@
+use axum::http::StatusCode;
+use axum::response::IntoResponse;
 use axum::{
     Json, Router,
     extract::{Path, Query, State},
     http::Method,
     routing::get,
 };
-use axum::{http::StatusCode, response::IntoResponse};
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 use serde::Deserialize;
 use utoipa::{IntoParams, OpenApi};
 use uuid::Uuid;
 
+use crate::config::Config;
 use crate::database::DatabaseConnection;
 use crate::entities::player::Entity as PlayerEntity;
 use crate::entities::player::Model as Player;
@@ -19,6 +21,11 @@ use crate::entities::stat_categories::Column as StatCategorieColumn;
 use crate::entities::stat_categories::Entity as StatCategorieEntity;
 use crate::entities::stat_categories::Model as StatCategorie;
 use crate::models::{CategoryStatsResponse, PlayerStatsResponse};
+
+const DEFAULT_LIMIT: u64 = 25;
+const DEFAULT_PAGE: u64 = 1;
+const DEFAULT_SORT_BY: &str = "value";
+const DEFAULT_ORDER: &str = "desc";
 
 #[derive(Debug, Deserialize, IntoParams)]
 pub struct SearchParams {
@@ -35,6 +42,45 @@ pub struct SearchParams {
 #[derive(Clone)]
 pub struct AppState {
     pub database_connection: DatabaseConnection,
+    pub config: Config,
+}
+
+fn parse_pagination(params: &SearchParams) -> (u64, u64) {
+    let limit = params.limit.unwrap_or(DEFAULT_LIMIT);
+    let offset = (params.page.unwrap_or(DEFAULT_PAGE).max(DEFAULT_PAGE) - 1) * limit;
+    (limit, offset)
+}
+
+fn parse_sort_order(params: &SearchParams) -> (String, String) {
+    let sort_by = params
+        .sort_by
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| DEFAULT_SORT_BY.to_string());
+    let order = params
+        .order
+        .as_ref()
+        .cloned()
+        .unwrap_or_else(|| DEFAULT_ORDER.to_string());
+    (sort_by, order)
+}
+
+fn apply_sorting(
+    query: sea_orm::Select<PlayerStatsEntity>,
+    sort_by: &str,
+    order: &str,
+) -> sea_orm::Select<PlayerStatsEntity> {
+    if sort_by == "stat_name" {
+        if order == "asc" {
+            query.order_by_asc(PlayerStatsColumn::StatName)
+        } else {
+            query.order_by_desc(PlayerStatsColumn::StatName)
+        }
+    } else if order == "asc" {
+        query.order_by_asc(PlayerStatsColumn::Value)
+    } else {
+        query.order_by_desc(PlayerStatsColumn::Value)
+    }
 }
 
 #[utoipa::path(
@@ -50,8 +96,8 @@ pub async fn categories(State(app_state): State<AppState>) -> impl IntoResponse 
         .all(app_state.database_connection.as_ref())
         .await
     {
-        Ok(category) => Json::<Vec<StatCategorie>>(category).into_response(),
-        _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(cats) => (StatusCode::OK, Json(cats)),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
     }
 }
 
@@ -76,13 +122,8 @@ pub async fn category(
     Path(categorie): Path<String>,
     Query(params): Query<SearchParams>,
 ) -> impl IntoResponse {
-    let limit = params.limit.unwrap_or(25);
-    let offset = (params.page.unwrap_or(1).max(1) - 1) * limit;
-    let sort_by_owned = params
-        .sort_by
-        .clone()
-        .unwrap_or_else(|| "value".to_string());
-    let order_owned = params.order.clone().unwrap_or_else(|| "desc".to_string());
+    let (limit, offset) = parse_pagination(&params);
+    let (sort_by, order) = parse_sort_order(&params);
 
     let category = match StatCategorieEntity::find()
         .filter(StatCategorieColumn::Name.eq(&categorie))
@@ -93,24 +134,11 @@ pub async fn category(
         _ => return StatusCode::NOT_FOUND.into_response(),
     };
 
-    let mut query =
-        PlayerStatsEntity::find().filter(PlayerStatsColumn::StatCategoriesId.eq(category.id));
-
-    if sort_by_owned == "stat_name" {
-        if order_owned == "asc" {
-            query = query.order_by_asc(PlayerStatsColumn::StatName);
-        } else {
-            query = query.order_by_desc(PlayerStatsColumn::StatName);
-        }
-    } else if sort_by_owned == "value" {
-        if order_owned == "asc" {
-            query = query.order_by_asc(PlayerStatsColumn::Value);
-        } else {
-            query = query.order_by_desc(PlayerStatsColumn::Value);
-        }
-    } else {
-        query = query.order_by_desc(PlayerStatsColumn::Value);
-    }
+    let query = apply_sorting(
+        PlayerStatsEntity::find().filter(PlayerStatsColumn::StatCategoriesId.eq(category.id)),
+        &sort_by,
+        &order,
+    );
 
     match query
         .limit(limit)
@@ -118,10 +146,8 @@ pub async fn category(
         .all(app_state.database_connection.as_ref())
         .await
     {
-        Ok(stats) => {
-            Json(CategoryStatsResponse { category, stats }).into_response()
-        }
-        _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(stats) => Json(CategoryStatsResponse { category, stats }).into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
 
@@ -138,8 +164,8 @@ pub async fn players(State(app_state): State<AppState>) -> impl IntoResponse {
         .all(app_state.database_connection.as_ref())
         .await
     {
-        Ok(all_players) => Json::<Vec<Player>>(all_players).into_response(),
-        _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(players) => (StatusCode::OK, Json(players)),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
     }
 }
 
@@ -163,33 +189,15 @@ pub async fn player(
     Path(player_uuid): Path<Uuid>,
     Query(params): Query<SearchParams>,
 ) -> impl IntoResponse {
-    let limit = params.limit.unwrap_or(25);
-    let offset = (params.page.unwrap_or(1).max(1) - 1) * limit;
-    let sort_by_owned = params
-        .sort_by
-        .clone()
-        .unwrap_or_else(|| "value".to_string());
-    let order_owned = params.order.clone().unwrap_or_else(|| "desc".to_string());
+    let (limit, offset) = parse_pagination(&params);
+    let (sort_by, order) = parse_sort_order(&params);
     let player_uuid_str = player_uuid.to_string();
 
-    let mut query =
-        PlayerStatsEntity::find().filter(PlayerStatsColumn::PlayerUuid.eq(&player_uuid_str));
-
-    if sort_by_owned == "stat_name" {
-        if order_owned == "asc" {
-            query = query.order_by_asc(PlayerStatsColumn::StatName);
-        } else {
-            query = query.order_by_desc(PlayerStatsColumn::StatName);
-        }
-    } else if sort_by_owned == "value" {
-        if order_owned == "asc" {
-            query = query.order_by_asc(PlayerStatsColumn::Value);
-        } else {
-            query = query.order_by_desc(PlayerStatsColumn::Value);
-        }
-    } else {
-        query = query.order_by_desc(PlayerStatsColumn::Value);
-    }
+    let query = apply_sorting(
+        PlayerStatsEntity::find().filter(PlayerStatsColumn::PlayerUuid.eq(&player_uuid_str)),
+        &sort_by,
+        &order,
+    );
 
     match query
         .limit(limit)
@@ -202,11 +210,11 @@ pub async fn player(
             stats,
         })
         .into_response(),
-        _ => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     }
 }
 
-pub async fn run_server(database: DatabaseConnection, port: &str) {
+pub async fn run_server(database: DatabaseConnection, config: Config) {
     use tower_http::cors::{Any, CorsLayer};
 
     let cors = CorsLayer::new()
@@ -216,6 +224,7 @@ pub async fn run_server(database: DatabaseConnection, port: &str) {
 
     let state = AppState {
         database_connection: database,
+        config: config.clone(),
     };
 
     let app = Router::new()
@@ -231,8 +240,7 @@ pub async fn run_server(database: DatabaseConnection, port: &str) {
         .with_state(state)
         .layer(cors);
 
-    let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", port))
-        .await
-        .unwrap();
+    let addr = format!("0.0.0.0:{}", config.port);
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

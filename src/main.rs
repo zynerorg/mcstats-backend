@@ -44,14 +44,14 @@ async fn main() {
 
     if args.server_only {
         log::info!("Running server only");
-        server::run_server(database, &config.port).await;
+        server::run_server(database, config.clone()).await;
     } else if args.sync_only {
         log::info!("Running syncer only");
         syncer::run_syncer(database, username_cache, config.stats_folder()).await;
     } else {
         log::info!("Running both server and syncer");
         tokio::select! {
-            _ = server::run_server(database.clone(), &config.port) => {},
+            _ = server::run_server(database.clone(), config.clone()) => {},
             _ = syncer::run_syncer(database.clone(), username_cache.clone(), config.stats_folder()) => {},
         }
     }
