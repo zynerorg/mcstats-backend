@@ -1,4 +1,4 @@
-use crate::entities::{PlayerStatsColumn, PlayerStatsEntity};
+use crate::entities::player_stats::{Column as PlayerStatsColumn, Entity as PlayerStatsEntity};
 use sea_orm::QueryOrder;
 use serde::Deserialize;
 use utoipa::IntoParams;

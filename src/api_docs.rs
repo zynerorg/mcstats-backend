@@ -1,11 +1,11 @@
-use crate::entities::player::Model as Player;
 use crate::entities::player_stats::Model as PlayerStats;
+use crate::entities::players::Model as Player;
 use crate::entities::stat_categories::Model as StatCategory;
 use crate::server::categories::__path_categories;
 use crate::server::categories::__path_category;
 use crate::server::players::__path_player;
-use crate::server::players::__path_players;
 use crate::server::players::__path_player_by_category;
+use crate::server::players::__path_players;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]

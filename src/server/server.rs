@@ -1,10 +1,9 @@
-use axum::{Router, http::Method, routing::get};
-use utoipa::OpenApi;
-
 use crate::config::Config;
 use crate::database::DatabaseConnection;
 use crate::server::categories::{categories, category};
 use crate::server::players::{player, player_by_category, players};
+use axum::{Router, http::Method, routing::get};
+use utoipa::OpenApi;
 
 #[derive(Clone)]
 pub struct AppState {

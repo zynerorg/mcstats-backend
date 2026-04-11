@@ -5,17 +5,14 @@ use serde::Serialize;
 use utoipa::ToSchema;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
-#[sea_orm(table_name = "player_stats")]
+#[sea_orm(table_name = "items")]
 #[serde(rename_all = "camelCase")]
 #[schema(rename_all = "camelCase")]
 pub struct Model {
-    #[sea_orm(primary_key, auto_increment = false, column_type = "Text")]
-    pub player_uuid: String,
-    #[sea_orm(primary_key, auto_increment = false)]
-    pub stat_categories_id: i32,
-    #[sea_orm(primary_key, auto_increment = false, column_type = "Text")]
-    pub stat_name: String,
-    pub value: i32,
+    #[sea_orm(primary_key)]
+    pub id: i32,
+    #[sea_orm(column_type = "Text", unique)]
+    pub name: String,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

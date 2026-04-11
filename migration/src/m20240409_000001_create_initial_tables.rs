@@ -26,28 +26,6 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(StatCategories::Table)
-                    .col(
-                        ColumnDef::new(StatCategories::Id)
-                            .integer()
-                            .not_null()
-                            .auto_increment()
-                            .primary_key(),
-                    )
-                    .col(
-                        ColumnDef::new(StatCategories::Name)
-                            .text()
-                            .not_null()
-                            .unique_key(),
-                    )
-                    .if_not_exists()
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_table(
-                Table::create()
                     .table(PlayerStats::Table)
                     .col(ColumnDef::new(PlayerStats::PlayerUuid).text().not_null())
                     .col(
@@ -70,6 +48,45 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager
+            .create_table(
+                Table::create()
+                    .table(StatCategories::Table)
+                    .col(
+                        ColumnDef::new(StatCategories::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(StatCategories::Name)
+                            .text()
+                            .not_null()
+                            .unique_key(),
+                    )
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
+        manager
+            .create_table(
+                Table::create()
+                    .table(Items::Table)
+                    .col(
+                        ColumnDef::new(Items::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(ColumnDef::new(Items::Name).text().not_null().unique_key())
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
         Ok(())
     }
 
@@ -82,6 +99,9 @@ impl MigrationTrait for Migration {
             .await?;
         manager
             .drop_table(Table::drop().table(Players::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Items::Table).to_owned())
             .await?;
         Ok(())
     }
@@ -96,6 +116,13 @@ enum Players {
 
 #[derive(Iden)]
 enum StatCategories {
+    Table,
+    Id,
+    Name,
+}
+
+#[derive(Iden)]
+enum Items {
     Table,
     Id,
     Name,

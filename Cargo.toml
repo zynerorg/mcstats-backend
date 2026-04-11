@@ -23,7 +23,11 @@ utoipa = { version = "5.4.0", features = ["uuid"] }
 utoipa-gen = "5.4.0"
 utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
 clap = { version = "4.5", features = ["derive"] }
-sea-orm = { version = "1.1", features = ["runtime-tokio-native-tls", "sqlx-sqlite", "mock"] }
+sea-orm = { version = "1.1", features = [
+    "runtime-tokio-native-tls",
+    "sqlx-sqlite",
+    "mock",
+] }
 sea-orm-macros = "1.1"
 
 [dependencies.migration]

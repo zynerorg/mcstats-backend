@@ -1,6 +1,10 @@
-use crate::entities::{
-    PlayerStats, PlayerStatsColumn, PlayerStatsEntity, StatCategory as StatCategorie,
-    StatCategoryColumn, StatCategoryEntity,
+use super::helpers::{SearchParams, apply_sorting, parse_order, parse_pagination};
+use super::server::AppState;
+use crate::entities::player_stats::{
+    Column as PlayerStatsColumn, Entity as PlayerStatsEntity, Model as PlayerStats,
+};
+use crate::entities::stat_categories::{
+    Column as StatCategoryColumn, Entity as StatCategoryEntity, Model as StatCategory,
 };
 use axum::http::StatusCode;
 use axum::{
@@ -10,14 +14,11 @@ use axum::{
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 
-use super::helpers::{SearchParams, apply_sorting, parse_order, parse_pagination};
-use super::server::AppState;
-
 #[utoipa::path(
     get,
     path="/categories",
     responses(
-        (status = 200, body = Vec<StatCategorie>),
+        (status = 200, body = Vec<StatCategory>),
         (status = 500)
     )
 )]
@@ -60,7 +61,7 @@ pub async fn category(
         .await
     {
         Ok(Some(c)) => c,
-        _ => return StatusCode::NOT_FOUND.into_response(),
+        _ => return (StatusCode::NOT_FOUND, Json(vec![])),
     };
 
     let query = apply_sorting(
@@ -74,7 +75,7 @@ pub async fn category(
         .all(app_state.database_connection.as_ref())
         .await
     {
-        Ok(stats) => Json(stats).into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(stats) => (StatusCode::OK, Json(stats)),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
     }
 }

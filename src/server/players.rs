@@ -1,6 +1,11 @@
-use crate::entities::{
-    Player, PlayerEntity, PlayerStats, PlayerStatsColumn, PlayerStatsEntity, StatCategoryColumn,
-    StatCategoryEntity,
+use super::helpers::{SearchParams, apply_sorting, parse_order, parse_pagination};
+use super::server::AppState;
+use crate::entities::player_stats::{
+    Column as PlayerStatsColumn, Entity as PlayerStatsEntity, Model as PlayerStats,
+};
+use crate::entities::players::{Entity as PlayerEntity, Model as Player};
+use crate::entities::stat_categories::{
+    Column as StatCategoryColumn, Entity as StatCategoryEntity,
 };
 use axum::http::StatusCode;
 use axum::{
@@ -10,9 +15,6 @@ use axum::{
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
 use uuid::Uuid;
-
-use super::helpers::{SearchParams, apply_sorting, parse_order, parse_pagination};
-use super::server::AppState;
 
 #[utoipa::path(
     get,
@@ -66,8 +68,8 @@ pub async fn player(
         .all(app_state.database_connection.as_ref())
         .await
     {
-        Ok(stats) => Json(stats).into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(stats) => (StatusCode::OK, Json(stats)),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
     }
 }
 
@@ -102,8 +104,8 @@ pub async fn player_by_category(
 
     let category = match category {
         Ok(Some(c)) => c,
-        Ok(None) => return StatusCode::NOT_FOUND.into_response(),
-        Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(None) => return (StatusCode::NOT_FOUND, Json(vec![])),
+        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
     };
 
     let query = apply_sorting(
@@ -122,7 +124,7 @@ pub async fn player_by_category(
         .await;
 
     match results {
-        Ok(data) => (StatusCode::OK, Json(data)).into_response(),
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR.into_response(),
+        Ok(data) => (StatusCode::OK, Json(data)),
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
     }
 }
