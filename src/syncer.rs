@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use notify::RecursiveMode;
 use notify_debouncer_mini::{DebouncedEventKind, new_debouncer};
@@ -10,7 +11,7 @@ use crate::mojang_utils::UsernameCache;
 async fn handle_stats_file_change(
     db: &DatabaseConnection,
     path: &PathBuf,
-    username_cache: &mut UsernameCache,
+    username_cache: Arc<UsernameCache>,
 ) {
     if let Err(e) = db.process_stats_file(path, username_cache).await {
         log::error!("Error processing stats file {:?}: {:?}", path, e);
@@ -21,19 +22,19 @@ async fn handle_stats_file_change(
 
 pub async fn run_syncer(
     database: DatabaseConnection,
-    username_cache: UsernameCache,
+    username_cache: Arc<UsernameCache>,
     stats_folder: PathBuf,
 ) {
     log::info!("Starting initial population of database from stats folder...");
     database
-        .populate(&stats_folder, &username_cache)
+        .populate(&stats_folder, username_cache.clone())
         .await
         .expect("Initial population failed");
     log::info!("Initial database population complete");
 
     let db = database.clone();
     let stats_path = stats_folder.clone();
-    let mut cache = username_cache.clone();
+    let cache = username_cache.clone();
 
     let (tx, mut rx) = mpsc::channel(100);
 
@@ -62,7 +63,7 @@ pub async fn run_syncer(
         let path = event.path;
         if path.extension().is_some_and(|ext| ext == "json") {
             log::info!("Detected change in: {:?}", path);
-            handle_stats_file_change(&db, &path, &mut cache).await;
+            handle_stats_file_change(&db, &path, cache.clone()).await;
         }
     }
 }

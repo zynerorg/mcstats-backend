@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use clap::Parser;
 use minecraft_stats::config::Config;
 use minecraft_stats::database::DatabaseConnection;
@@ -30,8 +32,11 @@ async fn main() {
     log::info!("World path: {}", config.world_folder.to_str().unwrap());
     log::info!("Database URL: {}", config.database_url);
 
-    let username_cache =
-        UsernameCache::from_usercache(&config.usercache_path).expect("Failed to load usercache");
+    let username_cache = Arc::new(
+        UsernameCache::from_usercache(&config.usercache_path)
+            .await
+            .expect("Failed to load usercache"),
+    );
 
     let database = DatabaseConnection::new(
         &config.database_url,

@@ -2,24 +2,26 @@ use super::DatabaseConnection;
 use crate::database::StatsFile;
 use crate::entities::players::Model as Player;
 use crate::mojang_utils::UsernameCache;
+
 use anyhow::{Result, anyhow};
 use futures::StreamExt;
 use log::error;
+
 use std::path::Path;
+use std::sync::Arc;
 
 impl DatabaseConnection {
-    pub async fn populate(&self, stats_folder: &Path, cache: &UsernameCache) -> Result<()> {
+    pub async fn populate(&self, stats_folder: &Path, cache: Arc<UsernameCache>) -> Result<()> {
         let files = self.collect_json_files(stats_folder).await?;
 
         let db = self.clone();
-        let cache = cache.clone();
 
         futures::stream::iter(files)
             .map(|path| {
                 let db = db.clone();
-                let mut cache = cache.clone();
+                let cache = cache.clone();
 
-                async move { db.process_stats_file(&path, &mut cache).await }
+                async move { db.process_stats_file(&path, cache).await }
             })
             .buffer_unordered(self.concurrency_limit())
             .for_each(|r| async {
@@ -32,7 +34,7 @@ impl DatabaseConnection {
         Ok(())
     }
 
-    pub async fn process_stats_file(&self, path: &Path, cache: &mut UsernameCache) -> Result<()> {
+    pub async fn process_stats_file(&self, path: &Path, cache: Arc<UsernameCache>) -> Result<()> {
         let uuid = self.extract_uuid(path)?;
         let stats_data = self.load_stats(path).await?;
 
