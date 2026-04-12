@@ -7,6 +7,7 @@ use anyhow::{Result, anyhow};
 use futures::StreamExt;
 use log::error;
 
+use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -16,7 +17,7 @@ impl DatabaseConnection {
 
         let db = self.clone();
 
-        futures::stream::iter(files)
+        let results: Vec<Result<Vec<String>>> = futures::stream::iter(files)
             .map(|path| {
                 let db = db.clone();
                 let cache = cache.clone();
@@ -24,17 +25,29 @@ impl DatabaseConnection {
                 async move { db.process_stats_file(&path, cache).await }
             })
             .buffer_unordered(self.concurrency_limit())
-            .for_each(|r| async {
-                if let Err(e) = r {
-                    error!("File processing error: {e}");
-                }
-            })
+            .collect()
             .await;
+
+        let mut all_items: HashSet<String> = HashSet::new();
+        for r in results {
+            match r {
+                Ok(items) => all_items.extend(items),
+                Err(e) => error!("File processing error: {e}"),
+            }
+        }
+
+        if !all_items.is_empty() {
+            self.insert_items(all_items.into_iter().collect()).await?;
+        }
 
         Ok(())
     }
 
-    pub async fn process_stats_file(&self, path: &Path, cache: Arc<UsernameCache>) -> Result<()> {
+    pub async fn process_stats_file(
+        &self,
+        path: &Path,
+        cache: Arc<UsernameCache>,
+    ) -> Result<Vec<String>> {
         let uuid = self.extract_uuid(path)?;
         let stats_data = self.load_stats(path).await?;
 
@@ -49,9 +62,9 @@ impl DatabaseConnection {
         })
         .await?;
 
-        self.insert_stats(uuid, stats_data).await?;
+        let items = self.insert_stats(uuid, stats_data).await?;
 
-        Ok(())
+        Ok(items)
     }
 
     async fn collect_json_files(&self, folder: &Path) -> Result<Vec<std::path::PathBuf>> {

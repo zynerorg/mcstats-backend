@@ -1,5 +1,6 @@
 pub mod category;
 pub mod connection;
+pub mod items;
 pub mod player;
 pub mod populate;
 pub mod stats;

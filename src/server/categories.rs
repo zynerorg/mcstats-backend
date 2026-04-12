@@ -1,5 +1,5 @@
 use super::helpers::{SearchParams, apply_sorting, parse_order, parse_pagination};
-use super::server::AppState;
+use super::run_server::AppState;
 use crate::entities::player_stats::{
     Column as PlayerStatsColumn, Entity as PlayerStatsEntity, Model as PlayerStats,
 };

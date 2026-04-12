@@ -4,7 +4,7 @@ use clap::Parser;
 use minecraft_stats::config::Config;
 use minecraft_stats::database::DatabaseConnection;
 use minecraft_stats::mojang_utils::UsernameCache;
-use minecraft_stats::server::server;
+use minecraft_stats::server::run_server;
 use minecraft_stats::syncer;
 
 #[derive(Parser)]
@@ -48,14 +48,14 @@ async fn main() {
 
     if args.server_only {
         log::info!("Running server only");
-        server::run_server(database, config.clone()).await;
+        run_server::run_server(database, config.clone()).await;
     } else if args.sync_only {
         log::info!("Running syncer only");
         syncer::run_syncer(database, username_cache, config.stats_folder()).await;
     } else {
         log::info!("Running both server and syncer");
         tokio::select! {
-            _ = server::run_server(database.clone(), config.clone()) => {},
+            _ = run_server::run_server(database.clone(), config.clone()) => {},
             _ = syncer::run_syncer(database.clone(), username_cache.clone(), config.stats_folder()) => {},
         }
     }

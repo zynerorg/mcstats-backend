@@ -13,7 +13,7 @@ use sea_orm::{ColumnTrait, DbErr, EntityTrait, QueryFilter, TransactionTrait};
 use std::collections::HashMap;
 
 impl DatabaseConnection {
-    pub async fn insert_stats(&self, uuid: uuid::Uuid, stats: StatsFile) -> Result<()> {
+    pub async fn insert_stats(&self, uuid: uuid::Uuid, stats: StatsFile) -> Result<Vec<String>> {
         let uuid_str = uuid.to_string();
         let total = stats
             .stats
@@ -22,6 +22,23 @@ impl DatabaseConnection {
             .sum::<usize>();
 
         info!("Inserting {total} stats for {uuid}");
+
+        let whitelist = [
+            "minecraft:crafted",
+            "minecraft:picked_up",
+            "minecraft:used",
+            "minecraft:broken",
+            "minecraft:dropped",
+        ];
+
+        let items: Vec<String> = stats
+            .stats
+            .iter()
+            .filter(|(category_name, _)| whitelist.iter().any(|w| category_name.starts_with(w)))
+            .flat_map(|(_, map)| map.keys())
+            .filter(|name| is_item(name))
+            .cloned()
+            .collect();
 
         let pool = self.as_ref();
 
@@ -33,7 +50,7 @@ impl DatabaseConnection {
                         .map_err(|e: anyhow::Error| DbErr::Custom(e.to_string()))?;
 
                     for (name, value) in map {
-                        Self::insert_stat_row(txn, &uuid_str, category_id, name, value)
+                        Self::insert_stat_row(txn, &uuid_str, category_id, name.clone(), value)
                             .await
                             .map_err(|e: anyhow::Error| DbErr::Custom(e.to_string()))?;
                     }
@@ -44,7 +61,7 @@ impl DatabaseConnection {
         })
         .await?;
 
-        Ok(())
+        Ok(items)
     }
 
     async fn get_or_create_category_in_txn(
@@ -98,4 +115,8 @@ impl DatabaseConnection {
             Err(e) => Err(e.into()),
         }
     }
+}
+
+fn is_item(name: &str) -> bool {
+    name.starts_with("minecraft:")
 }
