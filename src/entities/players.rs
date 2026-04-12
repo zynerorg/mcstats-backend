@@ -7,7 +7,7 @@ use utoipa::ToSchema;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
 #[sea_orm(table_name = "players")]
 #[serde(rename_all = "camelCase")]
-#[schema(rename_all = "camelCase")]
+#[schema(rename_all = "camelCase", as = Player)]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false, column_type = "Text")]
     pub player_uuid: String,

@@ -82,7 +82,8 @@ pub async fn player(
         ("order" = Option<String>, Query)
     ),
     responses(
-        (status = 200 )
+        (status = 200, body = Vec<PlayerStats>),
+        (status = 500)
     )
 )]
 pub async fn player_by_category(
