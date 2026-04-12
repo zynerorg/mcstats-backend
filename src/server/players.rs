@@ -4,9 +4,7 @@ use crate::entities::player_stats::{
     Column as PlayerStatsColumn, Entity as PlayerStatsEntity, Model as PlayerStats,
 };
 use crate::entities::players::{Entity as PlayerEntity, Model as Player};
-use crate::entities::stat_categories::{
-    Column as StatCategoryColumn, Entity as StatCategoryEntity,
-};
+use crate::server::helpers::get_category_id;
 use axum::http::StatusCode;
 use axum::{
     Json,
@@ -97,22 +95,17 @@ pub async fn player_by_category(
 
     let player_uuid_str = player_uuid.to_string();
 
-    let category = StatCategoryEntity::find()
-        .filter(StatCategoryColumn::Name.eq(&category_name))
-        .one(app_state.database_connection.as_ref())
-        .await;
+    let category_id = get_category_id(&app_state.database_connection, category_name.clone()).await;
 
-    let category = match category {
-        Ok(Some(c)) => c,
-        Ok(None) => return (StatusCode::NOT_FOUND, Json(vec![])),
-        Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, Json(vec![])),
+    let Some(category_id) = category_id else {
+        return (StatusCode::NOT_FOUND, Json(vec![]));
     };
 
     let query = apply_sorting(
         PlayerStatsEntity::find().filter(
             PlayerStatsColumn::PlayerUuid
                 .eq(&player_uuid_str)
-                .and(PlayerStatsColumn::StatCategoriesId.eq(category.id)),
+                .and(PlayerStatsColumn::StatCategoriesId.eq(category_id)),
         ),
         &order,
     );

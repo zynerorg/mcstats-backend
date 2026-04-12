@@ -1,5 +1,9 @@
+use crate::database::DatabaseConnection;
 use crate::entities::player_stats::{Column as PlayerStatsColumn, Entity as PlayerStatsEntity};
-use sea_orm::QueryOrder;
+use crate::entities::stat_categories::{
+    Column as StatCategoryColumn, Entity as StatCategoryEntity,
+};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::Deserialize;
 use utoipa::IntoParams;
 
@@ -39,4 +43,14 @@ pub fn apply_sorting(
     } else {
         query.order_by_desc(PlayerStatsColumn::Value)
     }
+}
+
+pub async fn get_category_id(database: &DatabaseConnection, category: String) -> Option<i32> {
+    StatCategoryEntity::find()
+        .filter(StatCategoryColumn::Name.eq(&category))
+        .one(database.as_ref())
+        .await
+        .ok()
+        .flatten()
+        .map(|c| c.id)
 }
