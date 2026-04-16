@@ -9,7 +9,7 @@ RUN rm -rf src
 COPY . .
 RUN cargo build --release
 
-FROM debian:trixie
+FROM debian:trixie-20260406
 WORKDIR /app
 
 COPY --from=builder /app/target/release/minecraft-stats /app/minecraft-stats
