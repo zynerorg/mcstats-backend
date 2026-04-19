@@ -6,8 +6,8 @@ use crate::server::categories::__path_categories;
 use crate::server::categories::__path_category;
 use crate::server::items::__path_item;
 use crate::server::items::__path_items;
+use crate::server::items::__path_stats;
 use crate::server::players::__path_player;
-use crate::server::players::__path_player_by_category;
 use crate::server::players::__path_players;
 use utoipa::OpenApi;
 
@@ -21,7 +21,7 @@ use utoipa::OpenApi;
             url = "https://www.gnu.org/licenses/gpl-3.0.html"
         )
     ),
-    paths(category, categories, players, player, player_by_category, items, item),
+    paths(category, categories, players, player, items, item, stats),
     components(schemas(Player, PlayerStats, StatCategory, Item))
 )]
 pub struct ApiDoc;

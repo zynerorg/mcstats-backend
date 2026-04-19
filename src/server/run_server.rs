@@ -1,8 +1,8 @@
 use crate::config::Config;
 use crate::database::DatabaseConnection;
 use crate::server::categories::{categories, category};
-use crate::server::items::{item, items};
-use crate::server::players::{player, player_by_category, players};
+use crate::server::items::{item, items, stats};
+use crate::server::players::{player, players};
 use axum::{Router, http::Method, routing::get};
 use utoipa::OpenApi;
 
@@ -26,14 +26,14 @@ pub async fn run_server(database: DatabaseConnection, config: Config) {
     };
 
     let app = Router::new()
-        .route("/", get(|| async { "Hello, from mcstats!" }))
+        .route("/", get(|| async { "Hello, from mcstatats!" }))
         .route("/categories", get(categories))
         .route("/categories/{categorie}", get(category))
         .route("/players", get(players))
         .route("/players/{player}", get(player))
-        .route("/players/{player}/{category}", get(player_by_category))
         .route("/items", get(items))
-        .route("/items/{category}/{item}", get(item))
+        .route("/items/{item}", get(item))
+        .route("/stats", get(stats))
         .merge(
             utoipa_swagger_ui::SwaggerUi::new("/docs")
                 .url("/openapi.json", crate::api_docs::ApiDoc::openapi()),
