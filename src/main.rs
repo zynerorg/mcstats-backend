@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
 use clap::Parser;
-use minecraft_stats::config::Config;
-use minecraft_stats::database::DatabaseConnection;
-use minecraft_stats::mojang_utils::UsernameCache;
-use minecraft_stats::server::run_server;
-use minecraft_stats::syncer;
+use mcstats_backend::config::Config;
+use mcstats_backend::database::DatabaseConnection;
+use mcstats_backend::mojang_utils::UsernameCache;
+use mcstats_backend::server::run_server;
+use mcstats_backend::syncer;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

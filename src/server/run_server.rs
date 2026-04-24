@@ -36,7 +36,7 @@ pub async fn run_server(database: DatabaseConnection, config: Config) {
         .route("/items/{item}", get(item))
         .route("/stats", get(stats))
         .merge(
-            utoipa_swagger_ui::SwaggerUi::new("/docs")
+            utoipa_swagger_ui::SwaggerUi::new("/docs/")
                 .url("/openapi.json", crate::api_docs::ApiDoc::openapi()),
         )
         .with_state(state)

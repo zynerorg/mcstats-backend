@@ -2,13 +2,9 @@ use crate::entities::items::Model as Item;
 use crate::entities::player_stats::Model as PlayerStats;
 use crate::entities::players::Model as Player;
 use crate::entities::stat_categories::Model as StatCategory;
-use crate::server::categories::__path_categories;
-use crate::server::categories::__path_category;
-use crate::server::items::__path_item;
-use crate::server::items::__path_items;
-use crate::server::items::__path_stats;
-use crate::server::players::__path_player;
-use crate::server::players::__path_players;
+use crate::server::categories;
+use crate::server::items;
+use crate::server::players;
 use utoipa::OpenApi;
 
 #[derive(OpenApi)]
@@ -21,7 +17,15 @@ use utoipa::OpenApi;
             url = "https://www.gnu.org/licenses/gpl-3.0.html"
         )
     ),
-    paths(category, categories, players, player, items, item, stats),
+    paths(
+        categories::categories,
+        categories::category,
+        players::players,
+        players::player,
+        items::items,
+        items::item,
+        items::stats,
+    ),
     components(schemas(Player, PlayerStats, StatCategory, Item))
 )]
 pub struct ApiDoc;
