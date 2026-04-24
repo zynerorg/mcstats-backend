@@ -4,6 +4,7 @@ use crate::server::categories::{categories, category};
 use crate::server::items::{item, items, stats};
 use crate::server::players::{player, players};
 use axum::{Router, http::Method, routing::get};
+use log::info;
 use utoipa::OpenApi;
 
 #[derive(Clone)]
@@ -42,6 +43,7 @@ pub async fn run_server(database: DatabaseConnection, config: Config) {
         .layer(cors);
 
     let addr = format!("0.0.0.0:{}", config.port);
+    info!("Listening on: {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }

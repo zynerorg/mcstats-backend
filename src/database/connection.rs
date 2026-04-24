@@ -23,6 +23,7 @@ impl DatabaseConnection {
         info!("Connecting to database...");
 
         let mut opt = ConnectOptions::new(url);
+        opt.sqlx_logging(false);
         opt.max_connections(pool_size);
 
         let conn = Database::connect(opt).await?;
