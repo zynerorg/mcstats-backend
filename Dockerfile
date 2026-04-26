@@ -9,7 +9,7 @@ RUN rm -rf src
 COPY . .
 RUN cargo build --release
 
-FROM debian:trixie-20260406
+FROM debian:trixie-20260421
 WORKDIR /app
 
 COPY --from=builder /app/target/release/mcstats-backend /app/mcstats-backend
