@@ -12,6 +12,6 @@ RUN cargo build --release
 FROM debian:trixie-20260406
 WORKDIR /app
 
-COPY --from=builder /app/target/release/minecraft-stats /app/minecraft-stats
+COPY --from=builder /app/target/release/mcstats-backend /app/mcstats-backend
 
-CMD [ "/app/minecraft-stats" ]
+CMD [ "/app/mcstats-backend" ]
