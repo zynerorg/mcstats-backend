@@ -14,5 +14,5 @@ pub type DbPool = sea_orm::DatabaseConnection;
 
 #[derive(Deserialize, Debug)]
 pub struct StatsFile {
-    pub stats: HashMap<String, HashMap<String, i32>>,
+    pub stats: HashMap<String, HashMap<String, i64>>,
 }

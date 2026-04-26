@@ -4,7 +4,7 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 use utoipa::ToSchema;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, ToSchema, Serialize)]
 #[sea_orm(table_name = "players")]
 #[serde(rename_all = "camelCase")]
 #[schema(rename_all = "camelCase", as = Player)]

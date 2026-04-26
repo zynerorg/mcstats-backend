@@ -4,7 +4,7 @@ use sea_orm::entity::prelude::*;
 use serde::Serialize;
 use utoipa::ToSchema;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, ToSchema)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, ToSchema, Serialize)]
 #[sea_orm(table_name = "player_stats")]
 #[serde(rename_all = "camelCase")]
 #[schema(rename_all = "camelCase", as = PlayerStat)]
@@ -15,7 +15,7 @@ pub struct Model {
     pub stat_categories_id: i32,
     #[sea_orm(primary_key, auto_increment = false, column_type = "Text")]
     pub stat_name: String,
-    pub value: i32,
+    pub value: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -18,7 +18,7 @@ impl DatabaseConnection {
         let total = stats
             .stats
             .values()
-            .map(|m: &HashMap<String, i32>| m.len())
+            .map(|m: &HashMap<String, i64>| m.len())
             .sum::<usize>();
 
         info!("Inserting {total} stats for {uuid}");
@@ -100,7 +100,7 @@ impl DatabaseConnection {
         uuid: &str,
         category_id: i32,
         name: String,
-        value: i32,
+        value: i64,
     ) -> Result<()> {
         let model = PlayerStatsActiveModel {
             player_uuid: sea_orm::Set(uuid.to_string()),

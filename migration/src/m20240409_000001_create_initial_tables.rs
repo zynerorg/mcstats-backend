@@ -34,7 +34,7 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(PlayerStats::StatName).text().not_null())
-                    .col(ColumnDef::new(PlayerStats::Value).integer().not_null())
+                    .col(ColumnDef::new(PlayerStats::Value).big_unsigned().not_null())
                     .primary_key(
                         Index::create()
                             .name("pk_player_stats")
