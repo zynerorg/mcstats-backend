@@ -22,7 +22,7 @@ pub struct StatsFilterInput {
     pub category: Option<String>,
     pub player_uuid: Option<String>,
     pub limit: Option<u64>,
-    pub page: Option<u64>,
+    pub offset: Option<u64>,
     pub order: Option<String>,
 }
 
@@ -93,12 +93,12 @@ impl QueryRoot {
             category: None,
             player_uuid: None,
             limit: Some(10),
-            page: Some(0),
+            offset: Some(0),
             order: None,
         });
 
         let limit = filter.limit.unwrap_or(10);
-        let offset = filter.page.unwrap_or(0) * limit;
+        let offset = filter.offset.unwrap_or(0) * limit;
         let order = filter.order.as_deref().unwrap_or("DESC");
 
         let mut query = StatEntity::find();
