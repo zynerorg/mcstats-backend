@@ -26,31 +26,6 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(PlayerStats::Table)
-                    .col(ColumnDef::new(PlayerStats::PlayerUuid).text().not_null())
-                    .col(
-                        ColumnDef::new(PlayerStats::StatCategoriesId)
-                            .integer()
-                            .not_null(),
-                    )
-                    .col(ColumnDef::new(PlayerStats::StatName).text().not_null())
-                    .col(ColumnDef::new(PlayerStats::Value).big_unsigned().not_null())
-                    .primary_key(
-                        Index::create()
-                            .name("pk_player_stats")
-                            .col(PlayerStats::PlayerUuid)
-                            .col(PlayerStats::StatCategoriesId)
-                            .col(PlayerStats::StatName)
-                            .primary(),
-                    )
-                    .if_not_exists()
-                    .to_owned(),
-            )
-            .await?;
-
-        manager
-            .create_table(
-                Table::create()
                     .table(StatCategories::Table)
                     .col(
                         ColumnDef::new(StatCategories::Id)
@@ -87,21 +62,72 @@ impl MigrationTrait for Migration {
             )
             .await?;
 
+        manager
+            .create_table(
+                Table::create()
+                    .table(PlayerStats::Table)
+                    .col(ColumnDef::new(PlayerStats::PlayerUuid).text().not_null())
+                    .col(
+                        ColumnDef::new(PlayerStats::StatCategoriesId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(ColumnDef::new(PlayerStats::StatName).text().not_null())
+                    .col(ColumnDef::new(PlayerStats::Value).big_integer().not_null())
+                    .primary_key(
+                        Index::create()
+                            .name("pk_player_stats")
+                            .col(PlayerStats::PlayerUuid)
+                            .col(PlayerStats::StatCategoriesId)
+                            .col(PlayerStats::StatName)
+                            .primary(),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_player_stats_player_uuid")
+                            .from_col(PlayerStats::PlayerUuid)
+                            .to_tbl(Players::Table)
+                            .to_col(Players::PlayerUuid)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .foreign_key(
+                        ForeignKey::create()
+                            .name("fk_player_stats_stat_categories_id")
+                            .from_col(PlayerStats::StatCategoriesId)
+                            .to_tbl(StatCategories::Table)
+                            .to_col(StatCategories::Id)
+                            .on_delete(ForeignKeyAction::Cascade),
+                    )
+                    .if_not_exists()
+                    .to_owned(),
+            )
+            .await?;
+
         Ok(())
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(PlayerStats::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .table(PlayerStats::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
             .await?;
         manager
-            .drop_table(Table::drop().table(StatCategories::Table).to_owned())
+            .drop_table(Table::drop().table(Items::Table).if_exists().to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(Players::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .table(StatCategories::Table)
+                    .if_exists()
+                    .to_owned(),
+            )
             .await?;
         manager
-            .drop_table(Table::drop().table(Items::Table).to_owned())
+            .drop_table(Table::drop().table(Players::Table).if_exists().to_owned())
             .await?;
         Ok(())
     }
