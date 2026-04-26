@@ -1,7 +1,7 @@
-pub mod api_docs;
 pub mod config;
 pub mod database;
 pub mod entities;
-pub mod mojang_utils;
+pub mod graphql;
 pub mod server;
 pub mod syncer;
+pub mod username_cache;

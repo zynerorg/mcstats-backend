@@ -2,11 +2,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use notify::RecursiveMode;
-use notify_debouncer_mini::{DebouncedEventKind, new_debouncer};
+use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
 use tokio::sync::mpsc;
 
 use crate::database::DatabaseConnection;
-use crate::mojang_utils::UsernameCache;
+use crate::username_cache::UsernameCache;
 
 async fn handle_stats_file_change(
     db: &DatabaseConnection,

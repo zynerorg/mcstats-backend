@@ -19,16 +19,14 @@ notify-debouncer-mini = "0.7.0"
 futures = "0.3.32"
 axum = "0.8.8"
 tower-http = { version = "0.6.8", features = ["cors"] }
-utoipa = { version = "5.4.0", features = ["uuid"] }
-utoipa-gen = "5.4.0"
-utoipa-swagger-ui = { version = "9.0.2", features = ["axum"] }
-clap = { version = "4.5", features = ["derive"] }
 sea-orm = { version = "1.1", features = [
     "runtime-tokio-native-tls",
     "sqlx-sqlite",
     "mock",
 ] }
 sea-orm-macros = "1.1"
+async-graphql = "7.0"
+async-graphql-axum = "7.0"
 
 [dependencies.migration]
 path = "migration"
