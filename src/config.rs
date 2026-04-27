@@ -3,8 +3,6 @@ use std::path::PathBuf;
 #[derive(Clone)]
 pub struct Config {
     pub database_url: String,
-    pub database_pool_size: u32,
-    pub database_concurrency_limit: usize,
     pub world_folder: PathBuf,
     pub usercache_path: PathBuf,
     pub port: String,
@@ -13,12 +11,6 @@ pub struct Config {
 impl Config {
     pub fn from_env() -> Self {
         let port = std::env::var("PORT").unwrap_or_else(|_| "80".to_string());
-        let database_pool_size = std::env::var("DATABASE_POOL_SIZE")
-            .map(|v| v.parse().unwrap_or(30))
-            .unwrap_or(30);
-        let database_concurrency_limit = std::env::var("DATABASE_CONCURRENCY_LIMIT")
-            .map(|v| v.parse().unwrap_or(2))
-            .unwrap_or(2);
         let database_url = std::env::var("DATABASE_URL")
             .map(|url| {
                 if url.starts_with("sqlite") {
@@ -55,8 +47,6 @@ impl Config {
 
         Self {
             database_url: final_url,
-            database_pool_size,
-            database_concurrency_limit,
             world_folder,
             usercache_path,
             port,

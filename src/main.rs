@@ -1,20 +1,10 @@
 use std::sync::Arc;
 
-use clap::Parser;
 use mcstats_backend::config::Config;
 use mcstats_backend::database::DatabaseConnection;
-use mcstats_backend::mojang_utils::UsernameCache;
-use mcstats_backend::server::run_server;
+use mcstats_backend::server;
 use mcstats_backend::syncer;
-
-#[derive(Parser)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    #[arg(long, default_value = "false")]
-    server_only: bool,
-    #[arg(long, default_value = "false")]
-    sync_only: bool,
-}
+use mcstats_backend::username_cache::UsernameCache;
 
 #[tokio::main]
 async fn main() {
@@ -26,7 +16,6 @@ async fn main() {
 
     log::info!("Starting Minecraft Stats");
 
-    let args = Args::parse();
     let config = Config::from_env();
 
     log::info!("World path: {}", config.world_folder.to_str().unwrap());
@@ -38,25 +27,12 @@ async fn main() {
             .expect("Failed to load usercache"),
     );
 
-    let database = DatabaseConnection::new(
-        &config.database_url,
-        config.database_pool_size,
-        config.database_concurrency_limit,
-    )
-    .await
-    .expect("Could not connect to database");
+    let database = DatabaseConnection::new(&config.database_url)
+        .await
+        .expect("Could not connect to database");
 
-    if args.server_only {
-        log::info!("Running server only");
-        run_server::run_server(database, config.clone()).await;
-    } else if args.sync_only {
-        log::info!("Running syncer only");
-        syncer::run_syncer(database, username_cache, config.stats_folder()).await;
-    } else {
-        log::info!("Running both server and syncer");
-        tokio::select! {
-            _ = run_server::run_server(database.clone(), config.clone()) => {},
-            _ = syncer::run_syncer(database.clone(), username_cache.clone(), config.stats_folder()) => {},
-        }
+    tokio::select! {
+        _ = server::run_server(database.clone(), config.clone()) => {},
+        _ = syncer::run_syncer(database.clone(), username_cache.clone(), config.stats_folder()) => {},
     }
 }

@@ -2,18 +2,5 @@
 
 pub mod prelude;
 
-pub mod items;
 pub mod player_stats;
 pub mod players;
-pub mod stat_categories;
-pub use player_stats::Column as PlayerStatsColumn;
-pub use player_stats::Entity as PlayerStatsEntity;
-pub use player_stats::Model as PlayerStats;
-pub use players::Entity as PlayerEntity;
-pub use players::Model as Player;
-pub use stat_categories::Column as StatCategoryColumn;
-pub use stat_categories::Column as StatCategoriesColumn;
-pub use stat_categories::Entity as StatCategoryEntity;
-pub use stat_categories::Entity as StatCategoriesEntity;
-pub use stat_categories::Model as StatCategory;
-pub use stat_categories::Model as StatCategories;
