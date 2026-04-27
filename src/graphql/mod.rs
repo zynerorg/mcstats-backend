@@ -147,6 +147,22 @@ impl QueryRoot {
         Ok(result)
     }
 
+    async fn items(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<String>> {
+        let db = ctx.data::<DatabaseConnection>()?;
+        let pool = db.as_ref();
+
+        let result: Vec<String> = StatEntity::find()
+            .select_only()
+            .column(StatColumn::ValueName)
+            .distinct()
+            .into_tuple()
+            .all(pool)
+            .await
+            .map_err(|e| async_graphql::Error::new(e.to_string()))?;
+
+        Ok(result)
+    }
+
     async fn category(
         &self,
         ctx: &Context<'_>,
