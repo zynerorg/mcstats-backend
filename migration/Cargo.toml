@@ -13,4 +13,4 @@ sea-orm-migration = { version = "1.1", features = [
 ] }
 sea-orm = { version = "1.1", features = ["runtime-tokio-native-tls", "sqlx-sqlite"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-sqlx-sqlite = "0.8"
+sqlx-sqlite = "0.9"
